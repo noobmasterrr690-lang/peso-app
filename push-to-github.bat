@@ -1,4 +1,9 @@
 @echo off
+setlocal
+where git >nul 2>nul
+if %errorlevel% neq 0 (
+  set "PATH=%LOCALAPPDATA%\Programs\Git\cmd;%PATH%"
+)
 title Push PESO to GitHub
 echo ========================================================
 echo   PESO - Push to GitHub
@@ -31,3 +36,4 @@ if %errorlevel% equ 0 (
 )
 echo.
 pause
+
