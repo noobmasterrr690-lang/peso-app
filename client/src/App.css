@@ -238,6 +238,8 @@ input, select, textarea,
   -webkit-backdrop-filter: blur(20px);
 }
 .auth-card {
+  position: relative;
+  z-index: 5;
   width: 100%;
   border-radius: 26px;
   padding: 34px;
@@ -1810,6 +1812,9 @@ button:active {
 }
 
 /* Native Dialog Modals */
+dialog:not([open]) {
+  display: none !important;
+}
 dialog.modal {
   border: 1px solid var(--line);
   border-radius: 22px;

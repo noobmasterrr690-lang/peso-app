@@ -185,22 +185,33 @@ export function Field({ label, hint, optional = false, children, id: providedId 
 
 /** Peso amount input with a visible ₱ prefix. */
 export function AmountInput({ id, value, onChange, required = true, min = '0.01', autoFocus = false, describedBy, placeholder = '0.00' }) {
+  const inputRef = useRef(null);
+
+  function handleChange(e) {
+    const raw = e.target.value;
+    // Allow numbers and at most one decimal point; accept comma as dot
+    const sanitized = raw.replace(/,/g, '.').replace(/[^0-9.]/g, '');
+    const parts = sanitized.split('.');
+    const clean = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+    onChange(clean);
+  }
+
   return (
-    <div className="amount-input">
+    <div className="amount-input" onClick={() => inputRef.current?.focus()}>
       <span aria-hidden="true">₱</span>
       <input
+        ref={inputRef}
         id={id}
         name="amount"
-        type="number"
+        type="text"
         inputMode="decimal"
-        min={min}
-        step="0.01"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={value ?? ''}
+        onChange={handleChange}
         placeholder={placeholder}
         required={required}
         autoFocus={autoFocus}
         aria-describedby={describedBy}
+        autoComplete="off"
       />
     </div>
   );
@@ -239,9 +250,16 @@ export function Modal({ open, onClose, labelledBy, className = '', children }) {
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
+    if (open && !dialog.open) {
+      try {
+        dialog.showModal();
+      } catch {
+        // Fallback if already opened or unhandled
+      }
+    }
   }, [open]);
+
+  if (!open) return null;
 
   return (
     <dialog
@@ -256,7 +274,7 @@ export function Modal({ open, onClose, labelledBy, className = '', children }) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      {open && <div className="modal-body">{children}</div>}
+      <div className="modal-body">{children}</div>
     </dialog>
   );
 }
