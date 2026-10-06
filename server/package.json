@@ -1,0 +1,27 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "db:prepare": "node scripts/prepare-db.js",
+    "db:push": "node scripts/prepare-db.js && prisma db push",
+    "db:generate": "node scripts/prepare-db.js && prisma generate",
+    "db:setup": "node scripts/prepare-db.js && prisma generate && prisma db push",
+    "db:seed": "node src/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.20.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^5.20.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/peso-companion.svg?v=2" />
+    <title>PESO | Personal Expense &amp; Spending Organizer</title>
+  </head>
+  <body>
+    <div id="root">
+      <noscript>
+        <div style="font-family:sans-serif;max-width:480px;margin:50px auto;padding:20px;border-radius:12px;background:#1e293b;color:#fff;text-align:center;">
+          <h3>JavaScript Required</h3>
+          <p>Please enable JavaScript to use the PESO app.</p>
+        </div>
+      </noscript>
+      <div id="static-preview-hint" style="display:none;font-family:system-ui,-apple-system,sans-serif;max-width:540px;margin:60px auto;padding:32px;border-radius:16px;background:#111827;color:#f3f4f6;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,0.35);border:1px solid #374151;">
+        <div style="font-size:36px;margin-bottom:12px;">🪙</div>
+        <h2 style="margin:0 0 10px;color:#fbbf24;font-size:22px;">Dev Server Required</h2>
+        <p style="color:#9ca3af;font-size:14px;line-height:1.6;margin-bottom:20px;">
+          PESO is a React application powered by Vite and cannot run directly as a static file or Live Server.
+        </p>
+        <p style="margin-bottom:24px;">
+          <a href="http://127.0.0.1:5173" style="display:inline-block;padding:12px 24px;background:#10b981;color:white;text-decoration:none;border-radius:8px;font-weight:600;font-size:15px;">Open http://127.0.0.1:5173</a>
+        </p>
+        <p style="font-size:12px;color:#6b7280;margin:0;">
+          If the dev server is not running yet, double-click <strong>run.bat</strong> or run <code>npm run dev</code>.
+        </p>
+      </div>
+      <script>
+        if (window.location.protocol === 'file:' || (window.location.port !== '5173' && window.location.port !== '4173' && window.location.port !== '3001')) {
+          setTimeout(function() {
+            var root = document.getElementById('root');
+            var hint = document.getElementById('static-preview-hint');
+            if (hint && root && root.children.length <= 2) {
+              hint.style.display = 'block';
+            }
+          }, 350);
+        }
+      </script>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
