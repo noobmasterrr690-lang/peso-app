@@ -5,6 +5,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import path from 'node:path';
+import fs from 'node:fs';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { prisma } from './lib/prisma.js';
 
@@ -89,7 +91,11 @@ function authMiddleware(req, res, next) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ ok: true, message: 'Peso server is running.' });
+  res.json({ ok: true, status: 'healthy', message: 'Peso server is running.' });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ ok: true, status: 'healthy', message: 'Peso server is running.' });
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -775,6 +781,25 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: 'Something went wrong on the server.' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Peso server listening on http://localhost:${PORT} (http://127.0.0.1:${PORT})`);
+// Ensure database schema is initialized if running SQLite fallback
+const dbUrl = (process.env.DATABASE_URL || '').trim();
+const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
+if (!isPostgres) {
+  const dbFile = path.resolve(__dirname, '../prisma/dev.db');
+  if (!fs.existsSync(dbFile)) {
+    try {
+      console.log('SQLite database file not found. Auto-initializing schema...');
+      execSync('npx prisma db push --skip-generate', {
+        cwd: path.resolve(__dirname, '..'),
+        stdio: 'inherit',
+      });
+      console.log('SQLite schema successfully initialized.');
+    } catch (err) {
+      console.error('Failed to auto-initialize SQLite schema:', err);
+    }
+  }
+}
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Peso server listening on http://0.0.0.0:${PORT} (port ${PORT})`);
 });
