@@ -126,16 +126,7 @@ export default function App() {
     setToasts((list) => [...list.slice(-2), { id, text, tone, action }]);
     setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), action ? 8000 : 5000);
   }, []);
-  const fail = useCallback((error) => {
-    const msg = error?.message || '';
-    if (/token|Authentication|Session|user not found|user no longer exists/i.test(msg)) {
-      logout('Your session expired. Please sign in again.');
-      return;
-    }
-    notify(msg || 'Something went wrong. Please try again.', { tone: 'error' });
-  }, [notify, logout]);
-
-  /* ---------------- loading ---------------- */
+  /* ---------------- loading & auth ---------------- */
   const logout = useCallback((reason) => {
     localStorage.removeItem('peso-token');
     localStorage.removeItem('peso-user');
@@ -147,6 +138,15 @@ export default function App() {
     setView('dashboard');
     notify(reason || 'You’ve been signed out.', { tone: reason ? 'error' : 'info' });
   }, [notify]);
+
+  const fail = useCallback((error) => {
+    const msg = error?.message || '';
+    if (/token|Authentication|Session|user not found|user no longer exists/i.test(msg)) {
+      logout('Your session expired. Please sign in again.');
+      return;
+    }
+    notify(msg || 'Something went wrong. Please try again.', { tone: 'error' });
+  }, [notify, logout]);
 
   const loadDashboard = useCallback(async () => {
     try {
