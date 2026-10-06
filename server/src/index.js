@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { prisma } from './lib/prisma.js';
+import { prisma, isRealPostgres } from './lib/prisma.js';
 
 dotenv.config();
 
@@ -73,7 +73,7 @@ async function readJsonString(str) {
   }
 }
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
 
@@ -83,15 +83,36 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload;
+    const user = await prisma.user.findUnique({ where: { id: payload.id } });
+    if (!user) {
+      return res.status(401).json({ message: 'Session expired or user not found. Please sign in again.' });
+    }
+    req.user = { id: user.id, email: user.email };
     return next();
   } catch {
     return res.status(401).json({ message: 'Invalid or expired token.' });
   }
 }
 
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true, status: 'healthy', message: 'Peso server is running.' });
+app.get('/api/health', async (req, res) => {
+  let dbStatus = 'ok';
+  let dbError = null;
+  try {
+    await prisma.user.count();
+  } catch (err) {
+    dbStatus = 'error';
+    dbError = err.message;
+  }
+  res.json({
+    ok: dbStatus === 'ok',
+    status: dbStatus === 'ok' ? 'healthy' : 'degraded',
+    message: 'Peso server is running.',
+    database: {
+      status: dbStatus,
+      provider: isRealPostgres ? 'postgresql' : 'sqlite',
+      error: dbError,
+    },
+  });
 });
 
 app.get('/health', (req, res) => {
@@ -325,21 +346,27 @@ app.put('/api/balance', authMiddleware, async (req, res) => {
   }
 
   const userId = req.user.id;
-  const latestBalance = await getUserBalance(userId);
 
-  if (!latestBalance) {
-    const balance = await prisma.balance.create({
-      data: { userId, currentAmount: Number(currentAmount) },
+  try {
+    const latestBalance = await getUserBalance(userId);
+
+    if (!latestBalance) {
+      const balance = await prisma.balance.create({
+        data: { userId, currentAmount: Number(currentAmount) },
+      });
+      return res.json({ currentAmount: Number(balance.currentAmount) });
+    }
+
+    const balance = await prisma.balance.update({
+      where: { id: latestBalance.id },
+      data: { currentAmount: Number(currentAmount) },
     });
+
     return res.json({ currentAmount: Number(balance.currentAmount) });
+  } catch (error) {
+    console.error('Update balance error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to update balance.' });
   }
-
-  const balance = await prisma.balance.update({
-    where: { id: latestBalance.id },
-    data: { currentAmount: Number(currentAmount) },
-  });
-
-  return res.json({ currentAmount: Number(balance.currentAmount) });
 });
 
 app.get('/api/expenses', authMiddleware, async (req, res) => {
@@ -353,12 +380,17 @@ app.get('/api/expenses', authMiddleware, async (req, res) => {
     if (endDate) where.date.lte = new Date(endDate);
   }
 
-  const expenses = await prisma.expense.findMany({
-    where,
-    orderBy: { date: 'desc' },
-  });
+  try {
+    const expenses = await prisma.expense.findMany({
+      where,
+      orderBy: { date: 'desc' },
+    });
 
-  return res.json(expenses);
+    return res.json(expenses);
+  } catch (error) {
+    console.error('Get expenses error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to fetch expenses.' });
+  }
 });
 
 app.post('/api/expenses', authMiddleware, async (req, res) => {
@@ -373,25 +405,32 @@ app.post('/api/expenses', authMiddleware, async (req, res) => {
     return res.status(400).json({ message: 'A valid positive expense amount is required.' });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const expense = await tx.expense.create({
-      data: {
-        userId: req.user.id,
-        amount: numAmount,
-        category: category.trim(),
-        date: new Date(date),
-        note: note?.trim() || '',
-      },
+  try {
+    const validDate = isNaN(new Date(date).getTime()) ? new Date() : new Date(date);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const expense = await tx.expense.create({
+        data: {
+          userId: req.user.id,
+          amount: numAmount,
+          category: category.trim(),
+          date: validDate,
+          note: note?.trim() || '',
+        },
+      });
+
+      const updatedBalance = await adjustUserBalance(req.user.id, -numAmount, tx);
+      return {
+        expense,
+        currentBalance: Number(updatedBalance.currentAmount),
+      };
     });
 
-    const updatedBalance = await adjustUserBalance(req.user.id, -numAmount, tx);
-    return {
-      expense,
-      currentBalance: Number(updatedBalance.currentAmount),
-    };
-  });
-
-  return res.status(201).json(result);
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error('Create expense error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to save expense.' });
+  }
 });
 
 app.put('/api/expenses/:id', authMiddleware, async (req, res) => {
@@ -502,25 +541,32 @@ app.post('/api/incomes', authMiddleware, async (req, res) => {
     return res.status(400).json({ message: 'A positive income amount is required.' });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    const income = await tx.income.create({
-      data: {
-        userId: req.user.id,
-        amount: numAmount,
-        source: source.trim(),
-        date: new Date(date),
-        note: note?.trim() || '',
-      },
+  try {
+    const validDate = isNaN(new Date(date).getTime()) ? new Date() : new Date(date);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const income = await tx.income.create({
+        data: {
+          userId: req.user.id,
+          amount: numAmount,
+          source: source.trim(),
+          date: validDate,
+          note: note?.trim() || '',
+        },
+      });
+
+      const updatedBalance = await adjustUserBalance(req.user.id, numAmount, tx);
+      return {
+        income,
+        currentBalance: Number(updatedBalance.currentAmount),
+      };
     });
 
-    const updatedBalance = await adjustUserBalance(req.user.id, numAmount, tx);
-    return {
-      income,
-      currentBalance: Number(updatedBalance.currentAmount),
-    };
-  });
-
-  return res.status(201).json(result);
+    return res.status(201).json(result);
+  } catch (error) {
+    console.error('Create income error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to save income.' });
+  }
 });
 
 app.delete('/api/incomes/:id', authMiddleware, async (req, res) => {
@@ -529,55 +575,70 @@ app.delete('/api/incomes/:id', authMiddleware, async (req, res) => {
     return res.status(404).json({ message: 'Income entry not found.' });
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.income.delete({ where: { id: req.params.id } });
-    const updatedBalance = await adjustUserBalance(req.user.id, -existingIncome.amount, tx);
-    return {
-      currentBalance: Number(updatedBalance.currentAmount),
-      deductedAmount: existingIncome.amount,
-    };
-  });
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.income.delete({ where: { id: req.params.id } });
+      const updatedBalance = await adjustUserBalance(req.user.id, -existingIncome.amount, tx);
+      return {
+        currentBalance: Number(updatedBalance.currentAmount),
+        deductedAmount: existingIncome.amount,
+      };
+    });
 
-  return res.json({ message: 'Income entry removed and deducted from balance.', ...result });
+    return res.json({ message: 'Income entry removed and deducted from balance.', ...result });
+  } catch (error) {
+    console.error('Delete income error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to delete income.' });
+  }
 });
 
 app.get('/api/budget', authMiddleware, async (req, res) => {
-  const budget = await getUserBudget(req.user.id);
-  if (!budget) {
-    return res.json({ period: 'monthly', totalLimit: 0, categoryLimits: {} });
-  }
+  try {
+    const budget = await getUserBudget(req.user.id);
+    if (!budget) {
+      return res.json({ period: 'monthly', totalLimit: 0, categoryLimits: {} });
+    }
 
-  return res.json({
-    id: budget.id,
-    period: budget.period,
-    totalLimit: Number(budget.totalLimit),
-    categoryLimits: await readJsonString(budget.categoryLimits),
-    updatedAt: budget.updatedAt,
-  });
+    return res.json({
+      id: budget.id,
+      period: budget.period,
+      totalLimit: Number(budget.totalLimit),
+      categoryLimits: await readJsonString(budget.categoryLimits),
+      updatedAt: budget.updatedAt,
+    });
+  } catch (error) {
+    console.error('Get budget error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to fetch budget.' });
+  }
 });
 
 app.put('/api/budget', authMiddleware, async (req, res) => {
   const { period = 'monthly', totalLimit = 0, categoryLimits = {} } = req.body || {};
   const userId = req.user.id;
 
-  const existing = await getUserBudget(userId);
-  const data = {
-    userId,
-    period,
-    totalLimit: Number(totalLimit),
-    categoryLimits: JSON.stringify(categoryLimits || {}),
-  };
+  try {
+    const existing = await getUserBudget(userId);
+    const data = {
+      userId,
+      period,
+      totalLimit: Number(totalLimit),
+      categoryLimits: JSON.stringify(categoryLimits || {}),
+    };
 
-  const budget = existing
-    ? await prisma.budget.update({ where: { id: existing.id }, data })
-    : await prisma.budget.create({ data });
+    const budget = existing
+      ? await prisma.budget.update({ where: { id: existing.id }, data })
+      : await prisma.budget.create({ data });
 
-  return res.json({
-    id: budget.id,
-    period: budget.period,
-    totalLimit: Number(budget.totalLimit),
-    categoryLimits: await readJsonString(budget.categoryLimits),
-  });
+    return res.json({
+      id: budget.id,
+      period: budget.period,
+      totalLimit: Number(budget.totalLimit),
+      categoryLimits: await readJsonString(budget.categoryLimits),
+    });
+  } catch (error) {
+    console.error('Update budget error:', error);
+    return res.status(500).json({ message: error.message || 'Unable to save budget.' });
+  }
 });
 
 app.get('/api/savings-goals', authMiddleware, async (req, res) => {
@@ -777,29 +838,39 @@ app.get(/^(?!\/api(?:\/|$)).*/, (req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Something went wrong on the server.' });
+  console.error('Unhandled server error:', err);
+  res.status(500).json({ message: err?.message || 'Something went wrong on the server.' });
 });
 
-// Ensure database schema is initialized if running SQLite fallback
-const dbUrl = (process.env.DATABASE_URL || '').trim();
-const isPostgres = dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://');
-if (!isPostgres) {
-  const dbFile = path.resolve(__dirname, '../prisma/dev.db');
-  if (!fs.existsSync(dbFile)) {
+async function startServer() {
+  if (!isRealPostgres) {
     try {
-      console.log('SQLite database file not found. Auto-initializing schema...');
-      execSync('npx prisma db push --skip-generate', {
-        cwd: path.resolve(__dirname, '..'),
-        stdio: 'inherit',
-      });
-      console.log('SQLite schema successfully initialized.');
+      await prisma.user.count();
+      console.log('SQLite database verified.');
     } catch (err) {
-      console.error('Failed to auto-initialize SQLite schema:', err);
+      console.log('Database tables not ready (' + err.message + '). Auto-pushing schema...');
+      try {
+        execSync('npx prisma db push --skip-generate --accept-data-loss', {
+          cwd: path.resolve(__dirname, '..'),
+          stdio: 'inherit',
+        });
+        console.log('Database schema push completed successfully.');
+      } catch (pushErr) {
+        console.error('Failed to auto-push database schema:', pushErr);
+      }
+    }
+  } else {
+    try {
+      await prisma.user.count();
+      console.log('PostgreSQL database verified.');
+    } catch (err) {
+      console.error('PostgreSQL connection test failed:', err.message);
     }
   }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Peso server listening on http://0.0.0.0:${PORT} (port ${PORT})`);
+  });
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Peso server listening on http://0.0.0.0:${PORT} (port ${PORT})`);
-});
+startServer();

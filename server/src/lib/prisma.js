@@ -8,16 +8,22 @@ dotenv.config();
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-const dbUrl = (process.env.DATABASE_URL || '').trim();
-const isPlaceholder =
-  !dbUrl ||
-  dbUrl.includes('ep-xxxxx') ||
-  dbUrl.includes('ep-cool-dawn') ||
-  dbUrl.includes('change-this') ||
-  dbUrl.includes('dummy') ||
-  dbUrl.startsWith('file:');
+export function isRealPostgresUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (
+    trimmed.includes('ep-xxxxx') ||
+    trimmed.includes('ep-cool-dawn') ||
+    trimmed.includes('change-this') ||
+    trimmed.includes('dummy') ||
+    trimmed.startsWith('file:')
+  ) {
+    return false;
+  }
+  return trimmed.startsWith('postgres://') || trimmed.startsWith('postgresql://');
+}
 
-const isRealPostgres = !isPlaceholder && (dbUrl.startsWith('postgres://') || dbUrl.startsWith('postgresql://'));
+export const isRealPostgres = isRealPostgresUrl(process.env.DATABASE_URL);
 
 if (!isRealPostgres) {
   const dbPath = path.resolve(__dirname, '../../prisma/dev.db');

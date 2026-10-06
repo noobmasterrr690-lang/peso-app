@@ -127,7 +127,7 @@ export async function apiRequest(path, { method = 'GET', body, token } = {}) {
   const data = contentType.includes('application/json') ? await response.json() : null;
 
   if (!response.ok) {
-    throw new Error(data?.message || 'Something went wrong. Please try again.');
+    throw new Error(data?.message || data?.error || `Request failed (${response.status})`);
   }
   return data;
 }
