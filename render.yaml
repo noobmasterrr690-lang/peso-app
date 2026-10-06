@@ -3,7 +3,7 @@ services:
     name: peso-app
     runtime: node
     plan: free
-    buildCommand: npm install && npm run deploy:build
+    buildCommand: npm install --include=dev && npm run deploy:build
     startCommand: npm run start
     envVars:
       - key: NODE_ENV

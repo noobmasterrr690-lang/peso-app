@@ -64,7 +64,7 @@ Render's free tier has ephemeral storage, so SQLite files would reset on server 
    - **Branch**: `main`
    - **Root Directory**: leave blank (or `peso-app` if you pushed the parent folder)
    - **Runtime**: `Node`
-   - **Build Command**: `npm install && npm run deploy:build`
+   - **Build Command**: `npm install --include=dev && npm run deploy:build`
    - **Start Command**: `npm run start`
    - **Instance Type**: `Free`
 6. Scroll down to **Environment Variables** and add:
