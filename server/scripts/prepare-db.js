@@ -10,22 +10,38 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const schemaPath = path.resolve(__dirname, '../prisma/schema.prisma');
 
-const databaseUrl = process.env.DATABASE_URL || '';
-const isPostgres = databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://');
-const targetProvider = isPostgres ? 'postgresql' : 'sqlite';
+const databaseUrl = (process.env.DATABASE_URL || '').trim();
+
+// Check if the URL is a sample placeholder from guides
+const isPlaceholder = 
+  !databaseUrl ||
+  databaseUrl.includes('ep-xxxxx') ||
+  databaseUrl.includes('ep-cool-dawn-a1b2c3') ||
+  databaseUrl.includes('change-this') ||
+  databaseUrl.includes('dummy') ||
+  databaseUrl.startsWith('file:');
+
+const isRealPostgres = !isPlaceholder && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://'));
+const targetProvider = isRealPostgres ? 'postgresql' : 'sqlite';
 
 try {
   let schema = fs.readFileSync(schemaPath, 'utf8');
-  const providerRegex = /provider\s*=\s*"(sqlite|postgresql)"/;
-  const currentMatch = schema.match(providerRegex);
 
-  if (currentMatch && currentMatch[1] !== targetProvider) {
-    schema = schema.replace(providerRegex, `provider = "${targetProvider}"`);
-    fs.writeFileSync(schemaPath, schema, 'utf8');
-    console.log(`[prepare-db] Updated Prisma datasource provider to "${targetProvider}" based on DATABASE_URL.`);
+  // Update provider
+  const providerRegex = /provider\s*=\s*"(sqlite|postgresql)"/;
+  schema = schema.replace(providerRegex, `provider = "${targetProvider}"`);
+
+  // Update url
+  const urlRegex = /url\s*=\s*.*$/m;
+  if (targetProvider === 'sqlite') {
+    schema = schema.replace(urlRegex, 'url      = "file:./dev.db"');
+    console.log(`[prepare-db] Using local SQLite database (file:./dev.db).`);
   } else {
-    console.log(`[prepare-db] Prisma datasource provider is "${targetProvider}".`);
+    schema = schema.replace(urlRegex, 'url      = env("DATABASE_URL")');
+    console.log(`[prepare-db] Using cloud PostgreSQL database.`);
   }
+
+  fs.writeFileSync(schemaPath, schema, 'utf8');
 } catch (error) {
   console.error('[prepare-db] Error updating schema.prisma:', error);
 }
