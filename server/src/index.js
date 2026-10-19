@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { prisma, isRealPostgres } from './lib/prisma.js';
+import { ensureDemoUser } from './demo.js';
 
 dotenv.config();
 
@@ -161,6 +162,19 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+app.post('/api/auth/demo', async (req, res) => {
+  try {
+    const user = await ensureDemoUser();
+    return res.json({
+      token: makeToken(user),
+      user: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error('Demo auth error:', error);
+    return res.status(500).json({ message: 'Unable to start demo. ' + (error?.message || '') });
+  }
+});
+
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body || {};
 
@@ -171,13 +185,24 @@ app.post('/api/auth/login', async (req, res) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   try {
-    const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    let user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+    if (!user && normalizedEmail === 'student@peso.app') {
+      user = await ensureDemoUser();
+    }
+
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
+      if (normalizedEmail === 'student@peso.app' && password === 'password123') {
+        user = await ensureDemoUser();
+        return res.json({
+          token: makeToken(user),
+          user: sanitizeUser(user),
+        });
+      }
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
@@ -866,6 +891,12 @@ async function startServer() {
     } catch (err) {
       console.error('PostgreSQL connection test failed:', err.message);
     }
+  }
+
+  try {
+    await ensureDemoUser();
+  } catch (demoErr) {
+    console.error('Failed to ensure demo user on startup:', demoErr);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

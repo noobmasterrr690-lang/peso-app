@@ -148,6 +148,27 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
     }
   }
 
+  async function startDemo() {
+    setError('');
+    setBusy(true);
+    try {
+      const response = await apiRequest('/auth/demo', { method: 'POST' });
+      onAuthenticated(response, false);
+    } catch {
+      try {
+        const response = await apiRequest('/auth/login', {
+          method: 'POST',
+          body: { email: 'student@peso.app', password: 'password123' },
+        });
+        onAuthenticated(response, false);
+      } catch (err) {
+        setError(err.message || 'Unable to launch demo. Please try again.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function submitReset(event) {
     event.preventDefault();
     setError('');
@@ -302,9 +323,9 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
               type="button"
               className="secondary-btn"
               disabled={busy}
-              onClick={() => submit(null, { email: 'student@peso.app', password: 'password123' })}
+              onClick={startDemo}
             >
-              Try the demo
+              {busy ? 'Starting demo…' : 'Try the demo'}
             </button>
           </div>
         )}
