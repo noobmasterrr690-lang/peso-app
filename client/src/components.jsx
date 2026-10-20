@@ -121,21 +121,6 @@ function PasswordInput({ id, value, onChange, autoComplete, minLength, described
   );
 }
 
-const LANDING_TIPS = [
-  '🪙 Tap any preset below to test how PESO tracks your allowance in real time!',
-  '💡 Saving just ₱50 a day adds up to ₱1,500 every single month!',
-  '🚌 Logging small jeepney & snack costs helps you spot where your money goes.',
-  '🎯 Set a savings goal first so you pay your future self before spending!',
-  '📊 PESO divides your remaining budget by the days left in the month automatically.',
-];
-
-const SANDBOX_PRESETS = [
-  { id: 'jeep', icon: '🚌', label: 'Jeepney', amount: 15, category: 'Transport' },
-  { id: 'meal', icon: '🍱', label: 'Canteen Meal', amount: 65, category: 'Food' },
-  { id: 'coffee', icon: '☕', label: 'Iced Coffee', amount: 45, category: 'Food' },
-  { id: 'print', icon: '📚', label: 'Xerox / Print', amount: 20, category: 'Study' },
-];
-
 export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
   const [mode, setMode] = useState('login'); // login | register | reset
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -143,54 +128,7 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  // Interactive landing page state
-  const [previewTab, setPreviewTab] = useState('spend'); // spend | budget | goal
-  const [tipIndex, setTipIndex] = useState(0);
-  const [mascotExcited, setMascotExcited] = useState(false);
-  const [simBalance, setSimBalance] = useState(1850);
-  const [simLogs, setSimLogs] = useState([
-    { id: 1, icon: '🍱', label: 'Campus Lunch', amount: 75 },
-    { id: 2, icon: '🚌', label: 'Jeepney Fare', amount: 15 },
-  ]);
-  const [simBudget, setSimBudget] = useState(1500);
-  const [simGoalSaved, setSimGoalSaved] = useState(900);
-  const simGoalTarget = 1500;
-
   const update = (key) => (value) => setForm((f) => ({ ...f, [key]: value }));
-
-  function triggerMascotReaction(nextTipIdx) {
-    setMascotExcited(true);
-    if (typeof nextTipIdx === 'number') {
-      setTipIndex(nextTipIdx);
-    } else {
-      setTipIndex((i) => (i + 1) % LANDING_TIPS.length);
-    }
-    setTimeout(() => setMascotExcited(false), 750);
-  }
-
-  function handleSandboxSpend(preset) {
-    setSimBalance((b) => Math.max(0, b - preset.amount));
-    setSimLogs((logs) => [
-      { id: Date.now() + Math.random(), icon: preset.icon, label: preset.label, amount: preset.amount },
-      ...logs.slice(0, 2),
-    ]);
-    triggerMascotReaction();
-  }
-
-  function handleSandboxReset() {
-    setSimBalance(1850);
-    setSimLogs([
-      { id: 1, icon: '🍱', label: 'Campus Lunch', amount: 75 },
-      { id: 2, icon: '🚌', label: 'Jeepney Fare', amount: 15 },
-    ]);
-    triggerMascotReaction(0);
-  }
-
-  function handlePointerMove(e) {
-    const rect = e.currentTarget.getBoundingClientRect();
-    e.currentTarget.style.setProperty('--spot-x', `${e.clientX - rect.left}px`);
-    e.currentTarget.style.setProperty('--spot-y', `${e.clientY - rect.top}px`);
-  }
 
   async function submit(event, override) {
     event?.preventDefault();
@@ -265,192 +203,29 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
 
   const heading = {
     login: { title: 'Welcome back', sub: 'Sign in to see your balance, budget and savings.' },
-    register: { title: 'Create your account', sub: 'Free, private, and built for students.' },
+    register: { title: 'Create your account', sub: 'Free, private, and it only takes a minute.' },
     reset: { title: 'Reset your password', sub: reset.step === 1 ? 'Enter the email you signed up with.' : 'Choose a new password.' },
   }[mode];
-
-  const simSpentTotal = 1940 - simBalance;
-  const simSafeDaily = Math.max(0, Math.round((simBudget - simSpentTotal) / 12));
-  const simGoalPct = Math.min(100, Math.round((simGoalSaved / simGoalTarget) * 100));
 
   return (
     <div className="auth-shell">
       <AmbientShapes />
       <div className="auth-aside">
-        <div className="auth-brand-badge">
-          <PixelCompanion compact />
-          <span className="eyebrow">PESO · Personal Expense &amp; Spending Organizer</span>
-        </div>
-
-        <h1 className="auth-hero-title">
-          Make every peso<br />
-          <em className="shimmer-text">count.</em>
-        </h1>
-        <p className="aside-copy">
-          The smart, stress-free money companion for students. Know what you have, what you spent, and what you can safely spend today.
-        </p>
-
-        {/* Interactive Live Mini-Preview Sandbox */}
-        <div className="auth-sandbox-card" onPointerMove={handlePointerMove}>
-          <div className="sandbox-header">
-            <span className="sandbox-live-dot" aria-hidden="true" />
-            <span className="sandbox-badge-text">Interactive Live Preview · Try tapping!</span>
-          </div>
-
-          <div className="sandbox-tabs" role="tablist" aria-label="Interactive feature preview">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewTab === 'spend'}
-              className={`sandbox-tab ${previewTab === 'spend' ? 'active' : ''}`}
-              onClick={() => setPreviewTab('spend')}
-            >
-              💸 1-Tap Spend
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewTab === 'budget'}
-              className={`sandbox-tab ${previewTab === 'budget' ? 'active' : ''}`}
-              onClick={() => setPreviewTab('budget')}
-            >
-              📊 Safe Daily Limit
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewTab === 'goal'}
-              className={`sandbox-tab ${previewTab === 'goal' ? 'active' : ''}`}
-              onClick={() => setPreviewTab('goal')}
-            >
-              🎯 Savings Jar
-            </button>
-          </div>
-
-          {previewTab === 'spend' && (
-            <div className="sandbox-panel" key="spend">
-              <div className="sandbox-balance-row">
-                <div>
-                  <span className="sandbox-label">Sample Wallet Balance</span>
-                  <strong className="sandbox-balance-value">
-                    <AnimatedCurrency value={simBalance} />
-                  </strong>
-                </div>
-                <button type="button" className="sandbox-reset-btn" onClick={handleSandboxReset} title="Reset sample balance">
-                  ↺ Reset
-                </button>
-              </div>
-              <div className="sandbox-chip-prompt">Tap an expense to test instant logging:</div>
-              <div className="sandbox-presets">
-                {SANDBOX_PRESETS.map((preset) => (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    className="sandbox-preset-btn"
-                    onClick={() => handleSandboxSpend(preset)}
-                  >
-                    <span>{preset.icon}</span>
-                    <span>{preset.label}</span>
-                    <strong>−₱{preset.amount}</strong>
-                  </button>
-                ))}
-              </div>
-              <ul className="sandbox-mini-feed" aria-label="Sample recent transactions">
-                {simLogs.map((item) => (
-                  <li key={item.id} className="sandbox-feed-item">
-                    <span>{item.icon} {item.label}</span>
-                    <span className="sandbox-feed-amount">−{formatCurrency(item.amount)}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {previewTab === 'budget' && (
-            <div className="sandbox-panel" key="budget">
-              <div className="sandbox-balance-row">
-                <div>
-                  <span className="sandbox-label">Safe to spend today</span>
-                  <strong className="sandbox-balance-value">
-                    <AnimatedCurrency value={simSafeDaily} />
-                    <small className="sandbox-per-day"> / day</small>
-                  </strong>
-                </div>
-                <span className="sandbox-status-pill">12 days left</span>
-              </div>
-              <div className="sandbox-chip-prompt">Pick a monthly budget limit:</div>
-              <div className="sandbox-budget-options">
-                {[1200, 1500, 2500, 3500].map((amt) => (
-                  <button
-                    key={amt}
-                    type="button"
-                    className={`sandbox-budget-btn ${simBudget === amt ? 'active' : ''}`}
-                    onClick={() => { setSimBudget(amt); triggerMascotReaction(); }}
-                  >
-                    ₱{amt.toLocaleString()}
-                  </button>
-                ))}
-              </div>
-              <ProgressBar value={simSpentTotal} max={simBudget} label="Sample monthly budget used" />
-              <div className="sandbox-meta-row">
-                <span>{formatCurrency(simSpentTotal)} spent</span>
-                <span>{formatCurrency(Math.max(0, simBudget - simSpentTotal))} remaining</span>
-              </div>
-            </div>
-          )}
-
-          {previewTab === 'goal' && (
-            <div className="sandbox-panel" key="goal">
-              <div className="sandbox-balance-row">
-                <div>
-                  <span className="sandbox-label">💻 Laptop Upgrade Goal</span>
-                  <strong className="sandbox-balance-value">
-                    <AnimatedCurrency value={simGoalSaved} /> <small className="sandbox-per-day">/ {formatCurrency(simGoalTarget)}</small>
-                  </strong>
-                </div>
-                <span className="sandbox-status-pill">{simGoalPct >= 100 ? '🎉 Reached!' : `${simGoalPct}%`}</span>
-              </div>
-              <ProgressBar value={simGoalSaved} max={simGoalTarget} tone="success" label="Sample goal progress" />
-              <div className="sandbox-goal-actions">
-                <button
-                  type="button"
-                  className="sandbox-coin-drop-btn"
-                  onClick={() => {
-                    setSimGoalSaved((s) => (s >= simGoalTarget ? 450 : Math.min(simGoalTarget, s + 150)));
-                    triggerMascotReaction();
-                  }}
-                >
-                  {simGoalSaved >= simGoalTarget ? '↺ Restart Goal Jar' : '🪙 + Drop ₱150 into Savings Jar'}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Interactive Mascot Stage */}
-        <div
-          className="auth-mascot-interactive"
-          role="button"
-          tabIndex={0}
-          onClick={() => triggerMascotReaction()}
-          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), triggerMascotReaction())}
-          aria-label="PESO Coin Companion. Click for a student money tip."
-        >
-          <div className="auth-mascot-coin">
-            <PixelCompanion mood={simGoalPct >= 100 ? 'cheering' : 'happy'} excited={mascotExcited} />
-          </div>
-          <div className="auth-mascot-bubble" key={tipIndex}>
-            <span className="mascot-bubble-tag">PESO Companion · Tap me!</span>
-            <p>{LANDING_TIPS[tipIndex]}</p>
-          </div>
-        </div>
+        <PixelCompanion compact />
+        <p className="eyebrow">PESO · Personal Expense &amp; Spending Organizer</p>
+        <h1>Make every peso<br /><em>count.</em></h1>
+        <p className="aside-copy">A simple money tracker for students. Know what you have, what you spent, and what you can still afford.</p>
+        <ul className="auth-benefits">
+          <li><span aria-hidden="true">💸</span> Log spending in seconds</li>
+          <li><span aria-hidden="true">📊</span> Get warned before you overspend</li>
+          <li><span aria-hidden="true">🎯</span> Save up for the things you want</li>
+        </ul>
+        <PixelCompanion />
       </div>
 
-      <main className="auth-card spotlight-surface" onPointerMove={handlePointerMove}>
+      <main className="auth-card">
         <div className="auth-card-header-row">
-          <div className="badge-pill">
-            <span className="badge-dot" aria-hidden="true" /> PESO ACCOUNT
-          </div>
+          <div className="badge-pill">PESO</div>
           <button
             type="button"
             className="theme-toggle-btn small"
@@ -462,7 +237,7 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
           </button>
         </div>
 
-        <div className="auth-card-heading" key={`heading-${mode}`}>
+        <div className="auth-card-heading">
           <h2>{heading.title}</h2>
           <p>{heading.sub}</p>
         </div>
@@ -481,16 +256,14 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
         {error && <div className="form-error" role="alert"><span aria-hidden="true">⚠️</span> {error}</div>}
 
         {mode === 'login' && (
-          <form className="stack auth-form-panel" key="login-form" onSubmit={submit}>
+          <form className="stack" onSubmit={submit}>
             <Field label="Email">
-              {(p) => <input {...p} name="email" type="email" placeholder="you@school.edu.ph" autoComplete="username" value={form.email} onChange={(e) => update('email')(e.target.value)} required />}
+              {(p) => <input {...p} name="email" type="email" autoComplete="username" value={form.email} onChange={(e) => update('email')(e.target.value)} required />}
             </Field>
             <Field label="Password">
               {(p) => <PasswordInput id={p.id} value={form.password} onChange={update('password')} autoComplete="current-password" />}
             </Field>
-            <button type="submit" className="primary-btn auth-submit-btn" disabled={busy}>
-              {busy ? 'Signing in…' : 'Sign in to PESO →'}
-            </button>
+            <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
             <button type="button" className="link-btn" onClick={() => { setMode('reset'); setError(''); setReset((r) => ({ ...r, email: form.email })); }}>
               Forgot your password?
             </button>
@@ -498,24 +271,22 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
         )}
 
         {mode === 'register' && (
-          <form className="stack auth-form-panel" key="register-form" onSubmit={submit}>
+          <form className="stack" onSubmit={submit}>
             <Field label="Your name" hint="We’ll use this to greet you.">
-              {(p) => <input {...p} name="name" type="text" placeholder="e.g. Sam" autoComplete="name" value={form.name} onChange={(e) => update('name')(e.target.value)} required />}
+              {(p) => <input {...p} name="name" type="text" autoComplete="name" value={form.name} onChange={(e) => update('name')(e.target.value)} required />}
             </Field>
             <Field label="Email">
-              {(p) => <input {...p} name="email" type="email" placeholder="you@school.edu.ph" autoComplete="email" value={form.email} onChange={(e) => update('email')(e.target.value)} required />}
+              {(p) => <input {...p} name="email" type="email" autoComplete="email" value={form.email} onChange={(e) => update('email')(e.target.value)} required />}
             </Field>
             <Field label="Password" hint="At least 6 characters.">
               {(p) => <PasswordInput id={p.id} describedBy={p['aria-describedby']} value={form.password} onChange={update('password')} autoComplete="new-password" minLength={6} />}
             </Field>
-            <button type="submit" className="primary-btn auth-submit-btn" disabled={busy}>
-              {busy ? 'Creating account…' : 'Create my account →'}
-            </button>
+            <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Creating account…' : 'Create my account'}</button>
           </form>
         )}
 
         {mode === 'reset' && (
-          <form className="stack auth-form-panel" key="reset-form" onSubmit={submitReset}>
+          <form className="stack" onSubmit={submitReset}>
             <ol className="steps" aria-label="Reset progress">
               <li className={reset.step === 1 ? 'active' : 'done'} aria-current={reset.step === 1 ? 'step' : undefined}>1. Your email</li>
               <li className={reset.step === 2 ? 'active' : ''} aria-current={reset.step === 2 ? 'step' : undefined}>2. New password</li>
@@ -534,7 +305,7 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
                 </Field>
               </>
             )}
-            <button type="submit" className="primary-btn auth-submit-btn" disabled={busy}>
+            <button type="submit" className="primary-btn" disabled={busy}>
               {busy ? 'Please wait…' : reset.step === 1 ? 'Get reset code' : 'Save new password'}
             </button>
             <button type="button" className="link-btn" onClick={() => { setMode('login'); setError(''); setReset({ step: 1, email: '', token: '', password: '' }); }}>
@@ -545,17 +316,17 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
 
         {mode !== 'reset' && (
           <div className="auth-demo">
-            <div className="auth-demo-copy">
-              <strong>🪙 Just looking around?</strong>
-              <span>Explore PESO with preloaded sample data — no sign-up needed.</span>
+            <div>
+              <strong>Just looking around?</strong>
+              <span>Try PESO with sample data — no sign-up needed.</span>
             </div>
             <button
               type="button"
-              className="secondary-btn auth-demo-btn"
+              className="secondary-btn"
               disabled={busy}
               onClick={startDemo}
             >
-              {busy ? 'Starting demo…' : '🚀 Try the demo'}
+              {busy ? 'Starting demo…' : 'Try the demo'}
             </button>
           </div>
         )}

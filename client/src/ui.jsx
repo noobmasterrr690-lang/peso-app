@@ -177,10 +177,6 @@ export function AmbientShapes() {
     <div className="ambient-shapes" aria-hidden="true">
       <span className="shape shape-ring" />
       <span className="shape shape-diamond" />
-      <span className="shape shape-orb" />
-      <span className="floating-token token-1">₱</span>
-      <span className="floating-token token-2">₱</span>
-      <span className="floating-token token-3">🪙</span>
     </div>
   );
 }
