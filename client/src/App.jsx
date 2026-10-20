@@ -3,6 +3,7 @@ import './App.css';
 import {
   AmountInput,
   AmbientShapes,
+  AnimatedCurrency,
   CATEGORIES,
   CATEGORY_IDS,
   ChoiceChips,
@@ -44,10 +45,19 @@ const emptyIncome = () => ({ amount: '', source: 'Allowance', date: localDateKey
 const emptyGoal = () => ({ name: '', targetAmount: '', currentAmount: '', targetDate: '' });
 const blankLimits = () => Object.fromEntries(CATEGORY_IDS.map((id) => [id, '']));
 
-function StatCard({ title, value, hint, tone = 'blue', children }) {
+function StatCard({ title, value, hint, tone = 'blue', onClick, actionLabel, children }) {
   return (
-    <div className={`stat-card tone-${tone}`}>
-      <div className="label">{title}</div>
+    <div
+      className={`stat-card tone-${tone} ${onClick ? 'is-interactive' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick()) : undefined}
+    >
+      <div className="stat-card-top">
+        <div className="label">{title}</div>
+        {actionLabel && <span className="stat-card-arrow" aria-hidden="true">{actionLabel}</span>}
+      </div>
       <div className="value">{value}</div>
       <div className="hint">{hint}</div>
       {children}
@@ -103,6 +113,8 @@ export default function App() {
   const [resetPhrase, setResetPhrase] = useState('');
   const [guideOpen, setGuideOpen] = useState(false);
   const [checklistHidden, setChecklistHidden] = useState(false);
+  const [companionExcited, setCompanionExcited] = useState(false);
+  const [companionSpeech, setCompanionSpeech] = useState('');
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -339,8 +351,11 @@ export default function App() {
 
   async function handleQuickAdd(preset) {
     setBusy(`preset-${preset.label}`);
+    setCompanionExcited(true);
+    setTimeout(() => setCompanionExcited(false), 750);
     try {
       await addExpense({ amount: preset.amount, category: preset.category, date: localDateKey(), note: preset.note }, `${preset.label} (${formatCurrency(preset.amount)})`);
+      setCompanionSpeech(`Logged ${preset.label} (₱${preset.amount})! Keep it up! 🪙`);
     } catch (error) {
       fail(error);
     } finally {
@@ -575,7 +590,16 @@ export default function App() {
       'Staying within your daily limit keeps you worry-free.',
     ];
     const quote = companionQuotes[Math.floor(Math.random() * companionQuotes.length)];
+    setCompanionExcited(true);
+    setCompanionSpeech(quote);
+    setTimeout(() => setCompanionExcited(false), 750);
     notify(`🪙 PESO Companion: “${quote}”`, { tone: 'info' });
+  }
+
+  function handleSurfaceSpot(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--spot-x', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--spot-y', `${e.clientY - rect.top}px`);
   }
 
   /* ---------------- helper text ---------------- */
@@ -731,10 +755,17 @@ export default function App() {
 
         {view === 'dashboard' && dashboard && (
           <div className="dashboard-view">
-            <section className="dashboard-hero">
+            <section className="dashboard-hero spotlight-surface" onPointerMove={handleSurfaceSpot}>
               <div className="hero-copy">
-                <div className="eyebrow lime">{formatMonthName(currentMonthKey())} · at a glance</div>
-                <h1>You have<br /><span>{formatCurrency(balance)}</span></h1>
+                <div className="eyebrow lime">
+                  <span className="live-pulse-dot" aria-hidden="true" /> {formatMonthName(currentMonthKey())} · at a glance
+                </div>
+                <h1>
+                  You have<br />
+                  <span className="hero-balance-amount">
+                    <AnimatedCurrency value={balance} />
+                  </span>
+                </h1>
                 <p>
                   {hasBudget
                     ? <>You’ve spent <strong>{formatCurrency(budget.spent)}</strong> of your <strong>{formatCurrency(budget.totalLimit)}</strong> budget this month{budget.remaining >= 0 ? <> — <strong>{formatCurrency(budget.remaining)}</strong> left.</> : <> — that’s <strong className="text-danger">{formatCurrency(-budget.remaining)} over</strong>.</>}</>
@@ -742,8 +773,10 @@ export default function App() {
                 </p>
                 {safeDailySpend > 0 && (
                   <div className="safe-spend-pill">
-                    To stay on budget, spend up to <strong>{formatCurrency(safeDailySpend)}</strong> per day
-                    <small>{daysLeft} day{daysLeft === 1 ? '' : 's'} left this month</small>
+                    <div className="safe-spend-pill-top">
+                      <span>✨ Safe daily spend: <strong><AnimatedCurrency value={safeDailySpend} /></strong> / day</span>
+                      <small>{daysLeft} day{daysLeft === 1 ? '' : 's'} left this month</small>
+                    </div>
                   </div>
                 )}
                 <div className="hero-actions">
@@ -758,15 +791,42 @@ export default function App() {
                   role="button"
                   tabIndex={0}
                   onClick={handleCompanionTap}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleCompanionTap()}
+                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), handleCompanionTap())}
                   title="PESO Companion: Click for a financial tip!"
                   aria-label="PESO Companion mascot. Click for financial encouragement."
                 >
-                  <PixelCompanion />
+                  <PixelCompanion
+                    mood={hasBudget && budget.remaining < 0 ? 'alert' : safeDailySpend > 0 && spentToday <= safeDailySpend ? 'cheering' : 'happy'}
+                    excited={companionExcited}
+                  />
+                  <div className="hero-companion-caption">
+                    {companionSpeech ? (
+                      <span className="companion-speech-inline" key={companionSpeech}>{companionSpeech}</span>
+                    ) : (
+                      <span className="companion-tap-hint">🪙 Tap companion for a tip</span>
+                    )}
+                  </div>
                 </div>
                 <div className="hero-ticket">
-                  <span>Spent today</span>
-                  <strong className={safeDailySpend > 0 && spentToday > safeDailySpend ? 'text-danger' : ''}>{formatCurrency(spentToday)}</strong>
+                  <div className="hero-ticket-top">
+                    <span>Spent today</span>
+                    {safeDailySpend > 0 && (
+                      <span className={`ticket-status-badge ${spentToday > safeDailySpend ? 'over' : spentToday > safeDailySpend * 0.8 ? 'warn' : 'ok'}`}>
+                        {spentToday > safeDailySpend ? '⚠️ Over target' : spentToday > safeDailySpend * 0.8 ? '⚡ Near limit' : '✨ On track'}
+                      </span>
+                    )}
+                  </div>
+                  <strong className={safeDailySpend > 0 && spentToday > safeDailySpend ? 'text-danger' : ''}>
+                    <AnimatedCurrency value={spentToday} />
+                  </strong>
+                  {safeDailySpend > 0 && (
+                    <ProgressBar
+                      value={spentToday}
+                      max={safeDailySpend}
+                      tone={spentToday > safeDailySpend ? 'over' : 'success'}
+                      label="Today's spending against daily safe limit"
+                    />
+                  )}
                   <small>
                     {safeDailySpend > 0
                       ? spentToday > safeDailySpend
@@ -775,6 +835,32 @@ export default function App() {
                       : 'Log expenses to track your day'}
                   </small>
                 </div>
+              </div>
+            </section>
+
+            {/* Interactive 1-Tap Quick Spend Strip on Home */}
+            <section className="home-quick-bar panel" aria-label="Quick 1-tap expense logging">
+              <div className="home-quick-info">
+                <span className="home-quick-badge">⚡ 1-Tap Quick Spend</span>
+                <span className="tiny-note">Log common student expenses for today in one tap (with instant Undo):</span>
+              </div>
+              <div className="home-quick-chips">
+                {QUICK_EXPENSE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    className={`preset-chip home-preset-btn ${busy === `preset-${preset.label}` ? 'is-saving' : ''}`}
+                    disabled={Boolean(busy)}
+                    onClick={() => handleQuickAdd(preset)}
+                  >
+                    <span aria-hidden="true">{categoryIcon(preset.category)}</span>
+                    <span>{preset.label}</span>
+                    <strong className="preset-chip-price">−₱{preset.amount}</strong>
+                  </button>
+                ))}
+                <button type="button" className="preset-chip home-preset-custom" onClick={() => go('expenses')}>
+                  ➕ Custom amount →
+                </button>
               </div>
             </section>
 
@@ -805,14 +891,35 @@ export default function App() {
                   </form>
                 ) : (
                   <>
-                    <div className="value">{formatCurrency(balance)}</div>
+                    <div className="value"><AnimatedCurrency value={balance} /></div>
                     <div className="hint">Money you have right now. Doesn’t match your wallet? Correct it.</div>
                   </>
                 )}
               </div>
-              <StatCard title="💸 Spent this month" value={formatCurrency(monthSpent)} hint={`${monthExpenses.length} expense${monthExpenses.length === 1 ? '' : 's'} logged`} tone="amber" />
-              <StatCard title="💰 Received this month" value={formatCurrency(monthIncome)} hint={monthIncome - monthSpent >= 0 ? `${formatCurrency(monthIncome - monthSpent)} more in than out` : `${formatCurrency(monthSpent - monthIncome)} more out than in`} tone="green" />
-              <StatCard title="🎯 In savings goals" value={formatCurrency(savingsTotal)} hint={goals.length ? `Across ${goals.length} goal${goals.length === 1 ? '' : 's'}` : 'No goals yet'} tone="blue" />
+              <StatCard
+                title="💸 Spent this month"
+                value={<AnimatedCurrency value={monthSpent} />}
+                hint={`${monthExpenses.length} expense${monthExpenses.length === 1 ? '' : 's'} logged`}
+                tone="amber"
+                actionLabel="View →"
+                onClick={() => go('expenses')}
+              />
+              <StatCard
+                title="💰 Received this month"
+                value={<AnimatedCurrency value={monthIncome} />}
+                hint={monthIncome - monthSpent >= 0 ? `${formatCurrency(monthIncome - monthSpent)} more in than out` : `${formatCurrency(monthSpent - monthIncome)} more out than in`}
+                tone="green"
+                actionLabel="View →"
+                onClick={() => go('income')}
+              />
+              <StatCard
+                title="🎯 In savings goals"
+                value={<AnimatedCurrency value={savingsTotal} />}
+                hint={goals.length ? `Across ${goals.length} goal${goals.length === 1 ? '' : 's'}` : 'Tap to create a goal'}
+                tone="blue"
+                actionLabel="Goals →"
+                onClick={() => go('goals')}
+              />
             </div>
 
             <FinancialAlerts dashboard={dashboard} onNavigate={go} />
@@ -822,13 +929,16 @@ export default function App() {
                 <div className="panel-heading-row">
                   <div>
                     <h2 className="panel-title" id="where-title">Where your money went</h2>
-                    <p className="tiny-note">This month, by category</p>
+                    <p className="tiny-note">This month, by category · tap a category to filter</p>
                   </div>
                   <button type="button" className="small-btn" onClick={() => go('budgets')}>{hasBudget ? 'Edit limits' : 'Set limits'}</button>
                 </div>
                 {hasBudget && (
                   <div className="overall-budget">
-                    <div className="label-row"><span>Whole budget</span><span>{formatCurrency(budget.spent)} / {formatCurrency(budget.totalLimit)}</span></div>
+                    <div className="label-row">
+                      <span>Whole budget ({Math.min(100, Math.round((budget.spent / Math.max(1, budget.totalLimit)) * 100))}%)</span>
+                      <span>{formatCurrency(budget.spent)} / {formatCurrency(budget.totalLimit)}</span>
+                    </div>
                     <ProgressBar value={budget.spent} max={budget.totalLimit} tone={budget.remaining < 0 ? 'over' : ''} label="Monthly budget used" />
                   </div>
                 )}
@@ -841,10 +951,31 @@ export default function App() {
                         const limit = Number(budget?.categoryLimits?.[c.id] || 0);
                         const maxSpent = Math.max(...Object.values(monthCategoryTotals), 1);
                         const over = limit > 0 && spent > limit;
+                        const sharePct = monthSpent > 0 ? Math.round((spent / monthSpent) * 100) : 0;
                         return (
-                          <li key={c.id} className="chart-row">
+                          <li
+                            key={c.id}
+                            className="chart-row interactive-chart-row"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              setSelectedCategory(c.id);
+                              go('expenses');
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setSelectedCategory(c.id);
+                                go('expenses');
+                              }
+                            }}
+                            title={`Filter expenses by ${c.id}`}
+                          >
                             <div className="label-row">
-                              <span><span aria-hidden="true">{c.icon}</span> {c.id}</span>
+                              <span>
+                                <span aria-hidden="true">{c.icon}</span> {c.id}
+                                {sharePct > 0 && <small className="category-share-badge">{sharePct}%</small>}
+                              </span>
                               <span className={over ? 'text-danger' : ''}>
                                 {formatCurrency(spent)}{limit > 0 && <span className="muted"> / {formatCurrency(limit)}</span>}
                               </span>
@@ -865,14 +996,21 @@ export default function App() {
                 <div className="panel-heading-row">
                   <div>
                     <h2 className="panel-title" id="recent-title">Recent activity</h2>
-                    <p className="tiny-note">Your latest money in and out</p>
+                    <p className="tiny-note">Your latest money in and out · tap an item to view</p>
                   </div>
                   <button type="button" className="small-btn" onClick={() => go('expenses')}>See all</button>
                 </div>
                 {recentActivity.length ? (
                   <ul className="recent-list">
                     {recentActivity.map((item) => (
-                      <li key={`${item.kind}-${item.id}`}>
+                      <li
+                        key={`${item.kind}-${item.id}`}
+                        className="interactive-recent-item"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => go(item.kind === 'income' ? 'income' : 'expenses')}
+                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go(item.kind === 'income' ? 'income' : 'expenses'))}
+                      >
                         <span className="list-icon" aria-hidden="true">{item.kind === 'income' ? sourceIcon(item.source) : categoryIcon(item.category)}</span>
                         <div className="list-item-info">
                           <div className="list-item-title">{item.note || (item.kind === 'income' ? item.source : item.category)}</div>
@@ -904,11 +1042,31 @@ export default function App() {
                     const current = Number(goal.currentAmount || 0);
                     const target = Number(goal.targetAmount || 1);
                     const progress = Math.min((current / target) * 100, 100);
+                    const complete = progress >= 100;
                     return (
-                      <div className="savings-goal-summary" key={goal.id}>
-                        <div className="savings-goal-topline"><strong>{goal.name}</strong><span>{progress >= 100 ? '🎉 Done' : `${progress.toFixed(0)}%`}</span></div>
+                      <div className={`savings-goal-summary ${complete ? 'is-complete' : ''}`} key={goal.id}>
+                        <div className="savings-goal-topline">
+                          <strong>🎯 {goal.name}</strong>
+                          <span>{complete ? '🎉 Done' : `${progress.toFixed(0)}%`}</span>
+                        </div>
                         <ProgressBar value={current} max={target} tone="success" label={`${goal.name} progress`} />
-                        <div className="savings-goal-meta"><span>{formatCurrency(current)} saved</span><span>{formatCurrency(Math.max(target - current, 0))} to go</span></div>
+                        <div className="savings-goal-meta">
+                          <span>{formatCurrency(current)} saved</span>
+                          <span>{formatCurrency(Math.max(target - current, 0))} to go</span>
+                        </div>
+                        {!complete && (
+                          <button
+                            type="button"
+                            className="home-goal-deposit-btn"
+                            onClick={() => {
+                              setTransferModal({ goal, type: 'deposit' });
+                              setTransferAmount('');
+                              setTransferError('');
+                            }}
+                          >
+                            + Add money
+                          </button>
+                        )}
                       </div>
                     );
                   })}

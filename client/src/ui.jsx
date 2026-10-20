@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                           */
@@ -136,27 +136,81 @@ export async function apiRequest(path, { method = 'GET', body, token } = {}) {
 /* UI building blocks                                                  */
 /* ------------------------------------------------------------------ */
 
+export function AnimatedCurrency({ value, duration = 600 }) {
+  const target = Number(value || 0);
+  const [display, setDisplay] = useState(target);
+  const prevRef = useRef(target);
+
+  useEffect(() => {
+    const startVal = prevRef.current;
+    prevRef.current = target;
+    if (startVal === target) {
+      setDisplay(target);
+      return;
+    }
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setDisplay(target);
+      return;
+    }
+    let rafId;
+    const startTime = performance.now();
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setDisplay(startVal + (target - startVal) * eased);
+      if (progress < 1) {
+        rafId = requestAnimationFrame(animate);
+      } else {
+        setDisplay(target);
+      }
+    };
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [target, duration]);
+
+  return <>{formatCurrency(display)}</>;
+}
+
 export function AmbientShapes() {
   return (
     <div className="ambient-shapes" aria-hidden="true">
       <span className="shape shape-ring" />
       <span className="shape shape-diamond" />
+      <span className="shape shape-orb" />
+      <span className="floating-token token-1">₱</span>
+      <span className="floating-token token-2">₱</span>
+      <span className="floating-token token-3">🪙</span>
     </div>
   );
 }
 
-export function PixelCompanion({ compact = false }) {
+export function PixelCompanion({ compact = false, mood = 'happy', excited = false }) {
   return (
-    <div className={`coin-stage ${compact ? 'coin-stage-compact' : ''}`} aria-hidden="true">
+    <div
+      className={`coin-stage ${compact ? 'coin-stage-compact' : ''} mood-${mood} ${excited ? 'is-excited' : ''}`}
+      aria-hidden="true"
+    >
       <div className="coin-aura" />
+      <div className="coin-orbit-ring" />
       <div className="pixel-companion">
         <span className="edge-coin edge-coin-one">₱</span>
         <span className="edge-coin edge-coin-two">₱</span>
         <span className="edge-coin edge-coin-three">₱</span>
+        {excited && (
+          <div className="coin-burst-layer">
+            <span className="burst-spark spark-1">+₱</span>
+            <span className="burst-spark spark-2">✨</span>
+            <span className="burst-spark spark-3">🪙</span>
+            <span className="burst-spark spark-4">+₱</span>
+          </div>
+        )}
         <div className="pixel-coin-body">
           <span className="pixel-shine" />
           <span className="pixel-eye pixel-eye-left" />
           <span className="pixel-eye pixel-eye-right" />
+          <span className="pixel-cheek pixel-cheek-left" />
+          <span className="pixel-cheek pixel-cheek-right" />
           <span className="pixel-smile" />
           <span className="pixel-peso">₱</span>
         </div>
