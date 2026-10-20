@@ -479,7 +479,7 @@ export default function App() {
         },
         `${preset.label} (${formatCurrency(preset.amount)})`
       );
-      setCompanionSpeech(`Logged ${preset.label} (₱${preset.amount})! Keep it up! 🪙`);
+      setCompanionSpeech(`Logged ${preset.label} (₱${preset.amount})! Keep it up!`);
     } catch (error) {
       fail(error);
     } finally {
@@ -997,10 +997,10 @@ export default function App() {
             <section className="home-quick-bar panel" aria-label="Quick 1-tap expense logging">
               <div className="home-quick-header">
                 <div className="home-quick-info">
-                  <span className="home-quick-badge">⚡ 1-Tap Quick Spend</span>
+                  <span className="home-quick-badge">1-Tap Quick Spend</span>
                   <span className="tiny-note">
                     {isManagingQuick
-                      ? 'Tap ✕ to remove any shortcut, or reset to defaults below:'
+                      ? 'Tap × to remove any shortcut, or reset to defaults below:'
                       : 'Log common expenses for today in one tap (with instant Undo):'}
                   </span>
                 </div>
@@ -1011,7 +1011,7 @@ export default function App() {
                     onClick={() => setIsManagingQuick((v) => !v)}
                     title={isManagingQuick ? 'Done managing shortcuts' : 'Manage and delete shortcuts'}
                   >
-                    {isManagingQuick ? '✓ Done' : '⚙️ Manage'}
+                    {isManagingQuick ? 'Done' : 'Manage'}
                   </button>
                   <button
                     type="button"
@@ -1019,7 +1019,7 @@ export default function App() {
                     onClick={() => setIsAddingQuick(true)}
                     title="Add a custom 1-tap quick spend shortcut"
                   >
-                    ➕ Add
+                    + Add
                   </button>
                 </div>
               </div>
@@ -1042,7 +1042,7 @@ export default function App() {
                       className={`quick-category-tab ${quickFilter === c.id ? 'active' : ''}`}
                       onClick={() => setQuickFilter(c.id)}
                     >
-                      <span aria-hidden="true">{c.icon}</span> {c.label} {count > 0 && <span className="cat-count">({count})</span>}
+                      {c.label} {count > 0 && <span className="cat-count">({count})</span>}
                     </button>
                   );
                 })}
@@ -1057,9 +1057,8 @@ export default function App() {
                         className={`preset-chip home-preset-btn ${busy === `preset-${preset.id || preset.label}` ? 'is-saving' : ''} ${isManagingQuick ? 'manage-mode' : ''}`}
                         disabled={Boolean(busy) || isManagingQuick}
                         onClick={() => handleQuickAdd(preset)}
-                        title={isManagingQuick ? `Click ✕ to remove ${preset.label}` : `1-Tap log: ₱${preset.amount}`}
+                        title={isManagingQuick ? `Click × to remove ${preset.label}` : `1-Tap log: ₱${preset.amount}`}
                       >
-                        <span aria-hidden="true">{classificationIcon(preset.classification) || categoryIcon(preset.category)}</span>
                         <span className="preset-label-text">{preset.label}</span>
                         <strong className="preset-chip-price">−₱{preset.amount}</strong>
                       </button>
@@ -1074,28 +1073,28 @@ export default function App() {
                           aria-label={`Delete ${preset.label}`}
                           title={`Delete ${preset.label}`}
                         >
-                          ✕
+                          ×
                         </button>
                       )}
                     </div>
                   ))
                 ) : (
                   <div className="quick-empty-hint">
-                    <p className="tiny-note">No {quickFilter} shortcuts yet. Click <strong>➕ Add</strong> to create one!</p>
+                    <p className="tiny-note">No {quickFilter} shortcuts yet. Click <strong>+ Add</strong> to create one!</p>
                   </div>
                 )}
                 {!isManagingQuick && (
                   <button type="button" className="preset-chip home-preset-custom" onClick={() => go('expenses')}>
-                    ➕ Custom expense →
+                    Custom expense →
                   </button>
                 )}
               </div>
 
               {isManagingQuick && (
                 <div className="quick-manage-footer">
-                  <span className="tiny-note">Managing shortcuts: Click ✕ on any shortcut above to delete.</span>
+                  <span className="tiny-note">Managing shortcuts: Click × on any shortcut above to delete.</span>
                   <button type="button" className="link-btn small" onClick={handleResetQuickPresets}>
-                    ↺ Reset to defaults
+                    Reset to defaults
                   </button>
                 </div>
               )}
@@ -1343,14 +1342,14 @@ export default function App() {
                         className={`small-btn ${isManagingQuick ? 'active-manage-btn' : ''}`}
                         onClick={() => setIsManagingQuick((v) => !v)}
                       >
-                        {isManagingQuick ? '✓ Done' : '⚙️ Manage'}
+                        {isManagingQuick ? 'Done' : 'Manage'}
                       </button>
                       <button
                         type="button"
                         className="small-btn primary-quick-btn"
                         onClick={() => setIsAddingQuick(true)}
                       >
-                        ➕ Add
+                        + Add
                       </button>
                     </div>
                   </div>
@@ -1371,7 +1370,7 @@ export default function App() {
                         className={`quick-category-tab ${quickFilter === c.id ? 'active' : ''}`}
                         onClick={() => setQuickFilter(c.id)}
                       >
-                        <span aria-hidden="true">{c.icon}</span> {c.label}
+                        {c.label}
                       </button>
                     ))}
                   </div>
@@ -1385,7 +1384,7 @@ export default function App() {
                           disabled={Boolean(busy) || isManagingQuick}
                           onClick={() => handleQuickAdd(preset)}
                         >
-                          <span aria-hidden="true">{classificationIcon(preset.classification) || categoryIcon(preset.category)}</span> {preset.label} · ₱{preset.amount}
+                          {preset.label} · ₱{preset.amount}
                         </button>
                         {isManagingQuick && (
                           <button
@@ -1394,7 +1393,7 @@ export default function App() {
                             onClick={() => handleDeleteQuickPreset(preset)}
                             aria-label={`Delete ${preset.label}`}
                           >
-                            ✕
+                            ×
                           </button>
                         )}
                       </div>
@@ -1404,7 +1403,7 @@ export default function App() {
                   {isManagingQuick && (
                     <div className="quick-manage-footer">
                       <button type="button" className="link-btn small" onClick={handleResetQuickPresets}>
-                        ↺ Reset to defaults
+                        Reset to defaults
                       </button>
                     </div>
                   )}
@@ -1837,7 +1836,7 @@ export default function App() {
       {/* ============================ MODALS ============================ */}
       {/* Add 1-Tap Quick Spend Modal */}
       <Modal open={isAddingQuick} onClose={() => setIsAddingQuick(false)} labelledBy="add-quick-title">
-        <h2 id="add-quick-title" className="modal-title">⚡ Add 1-Tap Quick Spend</h2>
+        <h2 id="add-quick-title" className="modal-title">Add 1-Tap Quick Spend</h2>
         <p className="tiny-note">Create a personalized shortcut for common student purchases.</p>
         <form className="stack" onSubmit={handleAddQuickSubmit}>
           <Field label="Shortcut name" hint="e.g. Jeep to School, Campus Meal, Iced Coffee, Yellow Pad">
@@ -1877,7 +1876,6 @@ export default function App() {
                   onClick={() => setNewQuickForm((f) => ({ ...f, classification: c.id }))}
                   aria-pressed={newQuickForm.classification === c.id}
                 >
-                  <span className="quick-class-icon" aria-hidden="true">{c.icon}</span>
                   <span className="quick-class-name">{c.label}</span>
                 </button>
               ))}

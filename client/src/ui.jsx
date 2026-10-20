@@ -12,22 +12,7 @@ export const CATEGORIES = [
   { id: 'Utilities', icon: '💡', hint: 'Load, internet, bills, laundry' },
 ];
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
-export const categoryIcon = (id) => {
-  const map = {
-    Food: '🍔',
-    Transport: '🚌',
-    Entertainment: '🎮',
-    Study: '📚',
-    Utilities: '💡',
-    Fare: '🚌',
-    Meal: '🍱',
-    Drink: '🥤',
-    'School Needs': '📚',
-    Others: '🏷️',
-    Other: '🏷️',
-  };
-  return map[id] || CATEGORIES.find((c) => c.id === id)?.icon || '🧾';
-};
+export const categoryIcon = (id) => CATEGORIES.find((c) => c.id === id)?.icon || '🧾';
 
 export const INCOME_SOURCES = [
   { id: 'Allowance', icon: '👪' },
@@ -40,15 +25,14 @@ export const INCOME_SOURCES = [
 export const sourceIcon = (id) => INCOME_SOURCES.find((s) => s.id === id)?.icon || '💰';
 
 export const QUICK_SPEND_CLASSIFICATIONS = [
-  { id: 'Fare', label: 'Fare', icon: '🚌', defaultCategory: 'Transport' },
-  { id: 'Meal', label: 'Meal', icon: '🍱', defaultCategory: 'Food' },
-  { id: 'Drink', label: 'Drink', icon: '🥤', defaultCategory: 'Food' },
-  { id: 'School Needs', label: 'School Needs', icon: '📚', defaultCategory: 'Study' },
-  { id: 'Others', label: 'Others', icon: '🏷️', defaultCategory: 'Utilities' },
+  { id: 'Fare', label: 'Fare', defaultCategory: 'Transport' },
+  { id: 'Meal', label: 'Meal', defaultCategory: 'Food' },
+  { id: 'Drink', label: 'Drink', defaultCategory: 'Food' },
+  { id: 'School Needs', label: 'School Needs', defaultCategory: 'Study' },
+  { id: 'Others', label: 'Others', defaultCategory: 'Utilities' },
 ];
 
-export const classificationIcon = (id) =>
-  QUICK_SPEND_CLASSIFICATIONS.find((c) => c.id === id)?.icon || '⚡';
+export const classificationIcon = () => '';
 
 export const DEFAULT_QUICK_PRESETS = [
   { id: 'qp-fare-jeep', label: 'Jeepney fare', amount: 15, classification: 'Fare', category: 'Transport', note: 'Jeepney fare' },

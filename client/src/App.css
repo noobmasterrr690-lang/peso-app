@@ -4685,24 +4685,22 @@ dialog.modal .modal-body {
 }
 
 .quick-class-picker {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 6px;
 }
 
 .quick-class-chip {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 10px 6px;
-  border-radius: 12px;
+  padding: 8px 14px;
+  border-radius: 999px;
   border: 1px solid var(--line);
   background: var(--panel-inner);
   color: var(--ink);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.18s ease;
@@ -4719,10 +4717,6 @@ dialog.modal .modal-body {
   color: var(--green);
   font-weight: 800;
   box-shadow: 0 0 0 1px var(--green);
-}
-
-.quick-class-icon {
-  font-size: 1.3rem;
 }
 
 .quick-class-name {
