@@ -13,6 +13,7 @@ export function isRealPostgresUrl(url) {
   const trimmed = url.trim();
   if (
     trimmed.includes('ep-xxxxx') ||
+    trimmed.includes('ep-cool-dawn') ||
     trimmed.includes('abc123xyz') ||
     trimmed.includes('YOUR_PASSWORD') ||
     trimmed.includes('change-this') ||

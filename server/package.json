@@ -9,7 +9,7 @@
     "db:prepare": "node scripts/prepare-db.js",
     "db:push": "node scripts/prepare-db.js && prisma db push",
     "db:generate": "node scripts/prepare-db.js && prisma generate",
-    "db:setup": "node scripts/prepare-db.js && prisma generate && prisma db push",
+    "db:setup": "node scripts/setup-db.js",
     "db:seed": "node src/seed.js"
   },
   "dependencies": {

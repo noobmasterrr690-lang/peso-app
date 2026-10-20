@@ -16,6 +16,7 @@ const databaseUrl = (process.env.DATABASE_URL || '').trim();
 const isPlaceholder = 
   !databaseUrl ||
   databaseUrl.includes('ep-xxxxx') ||
+  databaseUrl.includes('ep-cool-dawn') ||
   databaseUrl.includes('abc123xyz') ||
   databaseUrl.includes('YOUR_PASSWORD') ||
   databaseUrl.includes('change-this') ||
