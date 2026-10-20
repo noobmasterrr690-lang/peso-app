@@ -221,16 +221,21 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
     >
       <AmbientShapes />
       <div className="auth-aside">
-        <PixelCompanion compact />
         <p className="eyebrow">PESO · Personal Expense &amp; Spending Organizer</p>
         <h1>Make every peso<br /><em>count.</em></h1>
-        <p className="aside-copy">A simple money tracker for students. Know what you have, what you spent, and what you can still afford.</p>
-        <ul className="auth-benefits">
-          <li><span aria-hidden="true">💸</span> Log spending in seconds</li>
-          <li><span aria-hidden="true">📊</span> Get warned before you overspend</li>
-          <li><span aria-hidden="true">🎯</span> Save up for the things you want</li>
-        </ul>
-        <PixelCompanion />
+        <div className="auth-aside-lower">
+          <div className="auth-aside-details">
+            <p className="aside-copy">A simple money tracker for students. Know what you have, what you spent, and what you can still afford.</p>
+            <ul className="auth-benefits">
+              <li><span aria-hidden="true">💸</span> Log spending in seconds</li>
+              <li><span aria-hidden="true">📊</span> Get warned before you overspend</li>
+              <li><span aria-hidden="true">🎯</span> Save up for the things you want</li>
+            </ul>
+          </div>
+          <div className="auth-companion-spot">
+            <PixelCompanion />
+          </div>
+        </div>
       </div>
 
       <main className="auth-card">

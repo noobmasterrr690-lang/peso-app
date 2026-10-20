@@ -275,7 +275,7 @@ input, select, textarea,
 }
 .auth-toggle {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 4px;
   margin: 22px 0;
   padding: 4px;
@@ -3812,16 +3812,60 @@ dialog.modal .modal-body {
   50% { scale: 1.16; rotate: -8deg; }
 }
 
-/* Animated Coin Aura Pulse on Landing Page */
-.auth-aside .coin-aura {
+/* Balanced 8-bit Character Placement (Desktop & Mobile) */
+.auth-aside {
+  min-height: auto;
+  padding: 2vh 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.auth-aside h1 {
+  margin: 14px 0 18px;
+  font-size: clamp(3rem, 5.4vw, 5.4rem);
+}
+.auth-aside-lower {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(16px, 2.8vw, 36px);
+  width: 100%;
+  max-width: 640px;
+}
+.auth-aside-details {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.auth-aside-details .auth-benefits {
+  margin: 18px 0 0;
+}
+.auth-companion-spot {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  animation: auth-fade-up 0.7s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.auth-companion-spot .coin-stage {
+  width: 210px;
+  height: 210px;
+  margin: 0;
+}
+.auth-companion-spot .coin-aura {
+  width: 156px;
+  height: 156px;
   animation: aura-pulse 4.5s ease-in-out infinite;
+}
+.auth-companion-spot .coin-orbit-ring {
+  width: 182px;
+  height: 182px;
+}
+.auth-companion-spot .pixel-companion {
+  scale: 0.84;
+  transform-origin: center center;
 }
 @keyframes aura-pulse {
   0%, 100% { scale: 1; rotate: 18deg; opacity: 0.85; }
   50% { scale: 1.08; rotate: 26deg; opacity: 1; }
-}
-.auth-aside .coin-stage-compact .pixel-companion {
-  animation: companion-float 3.2s ease-in-out infinite;
 }
 
 /* Animated Auth Card, Badge & CTA Shimmer */
@@ -4224,28 +4268,54 @@ dialog.modal .modal-body {
   }
 }
 
+@media (max-width: 1120px) {
+  .auth-companion-spot .coin-stage {
+    width: 176px;
+    height: 176px;
+  }
+  .auth-companion-spot .coin-aura {
+    width: 132px;
+    height: 132px;
+  }
+  .auth-companion-spot .coin-orbit-ring {
+    width: 152px;
+    height: 152px;
+  }
+  .auth-companion-spot .pixel-companion {
+    scale: 0.72;
+  }
+}
+
 @media (max-width: 860px) {
-  .auth-aside .coin-stage-compact {
-    display: none !important;
+  .auth-aside-lower {
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+  }
+  .auth-companion-spot {
+    order: -1;
+    margin: 2px auto;
   }
   .auth-aside .coin-stage:not(.coin-stage-compact) {
     display: grid !important;
-    width: 140px;
-    height: 140px;
-    margin: 10px auto 0;
+    width: 136px;
+    height: 136px;
+    margin: 0 auto;
   }
   .auth-aside .coin-stage:not(.coin-stage-compact) .coin-aura {
-    width: 112px;
-    height: 112px;
+    width: 108px;
+    height: 108px;
   }
   .auth-aside .coin-stage:not(.coin-stage-compact) .coin-orbit-ring {
-    width: 128px;
-    height: 128px;
+    width: 124px;
+    height: 124px;
   }
   .auth-aside .coin-stage:not(.coin-stage-compact) .pixel-companion {
-    scale: 0.58;
+    scale: 0.56;
     transform-origin: center center;
   }
+  .auth-aside-details .auth-benefits,
   .auth-benefits {
     display: flex !important;
     flex-direction: row;
