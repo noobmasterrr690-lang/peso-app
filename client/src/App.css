@@ -2853,29 +2853,34 @@ dialog.modal .modal-body {
     min-width: 0;
     box-sizing: border-box;
   }
-  .list-icon {
+  .list-item .list-icon,
+  .recent-list li .list-icon {
     grid-area: icon;
     font-size: 1.35rem;
     flex-shrink: 0;
   }
-  .list-item-info {
+  .list-item .list-item-info,
+  .recent-list li .list-item-info {
     grid-area: info;
     min-width: 0;
     overflow: hidden;
   }
-  .list-item-title {
+  .list-item .list-item-title,
+  .recent-list li .list-item-title {
     font-size: 0.86rem;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .list-item-info .tiny-note {
+  .list-item .tiny-note,
+  .recent-list li .tiny-note {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  .amount-tag {
+  .list-item .amount-tag,
+  .recent-list li .amount-tag {
     grid-area: amount;
     font-size: 0.95rem;
     font-weight: 800;
@@ -2912,18 +2917,15 @@ dialog.modal .modal-body {
   .recent-list li {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "icon info amount";
     align-items: center;
-    gap: 10px;
-    padding: 11px;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-  }
-  .recent-list li .list-item-title {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
   }
 
   /* Mobile jump buttons for transactions */
