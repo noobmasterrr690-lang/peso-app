@@ -207,8 +207,18 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
     reset: { title: 'Reset your password', sub: reset.step === 1 ? 'Enter the email you signed up with.' : 'Choose a new password.' },
   }[mode];
 
+  function handleBgPointer(e) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty('--bg-spot-x', `${e.clientX - rect.left}px`);
+    e.currentTarget.style.setProperty('--bg-spot-y', `${e.clientY - rect.top}px`);
+  }
+
   return (
-    <div className="auth-shell">
+    <div
+      className="auth-shell"
+      onPointerMove={handleBgPointer}
+      onPointerDown={handleBgPointer}
+    >
       <AmbientShapes />
       <div className="auth-aside">
         <PixelCompanion compact />

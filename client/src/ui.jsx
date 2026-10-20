@@ -172,15 +172,56 @@ export function AnimatedCurrency({ value, duration = 600 }) {
   return <>{formatCurrency(display)}</>;
 }
 
+const BG_PARTICLES = [
+  { id: 1, symbol: '₱', kind: 'coin-gold', left: '7%', size: 'md', duration: '13s', delay: '0s' },
+  { id: 2, symbol: '✦', kind: 'spark-lime', left: '16%', size: 'sm', duration: '10s', delay: '-2.5s' },
+  { id: 3, symbol: '₱', kind: 'coin-lime', left: '25%', size: 'lg', duration: '15s', delay: '-6s' },
+  { id: 4, symbol: '🪙', kind: 'coin-gold', left: '36%', size: 'sm', duration: '12s', delay: '-4s' },
+  { id: 5, symbol: '₱', kind: 'coin-gold', left: '48%', size: 'md', duration: '14s', delay: '-9s' },
+  { id: 6, symbol: '↗', kind: 'spark-lime', left: '59%', size: 'sm', duration: '11s', delay: '-1.5s' },
+  { id: 7, symbol: '₱', kind: 'coin-lime', left: '68%', size: 'md', duration: '13.5s', delay: '-7.5s' },
+  { id: 8, symbol: '✦', kind: 'spark-gold', left: '77%', size: 'sm', duration: '9.5s', delay: '-3.2s' },
+  { id: 9, symbol: '₱', kind: 'coin-gold', left: '85%', size: 'lg', duration: '16s', delay: '-11s' },
+  { id: 10, symbol: '🪙', kind: 'coin-lime', left: '93%', size: 'sm', duration: '12.5s', delay: '-5s' },
+];
+
 export function AmbientShapes() {
   return (
     <div className="ambient-shapes" aria-hidden="true">
+      {/* Animated scrolling ledger grid & interactive spotlight */}
+      <div className="bg-grid-plane" />
+      <div className="bg-interactive-glow" />
+
+      {/* Glowing drifting aurora orbs */}
+      <span className="bg-aurora-orb orb-lime" />
+      <span className="bg-aurora-orb orb-gold" />
+      <span className="bg-aurora-orb orb-emerald" />
+
+      {/* Geometric rings & diamonds */}
       <span className="shape shape-ring" />
       <span className="shape shape-diamond" />
       <span className="shape shape-orb" />
-      <span className="floating-token token-1">₱</span>
-      <span className="floating-token token-2">₱</span>
-      <span className="floating-token token-3">🪙</span>
+
+      {/* Diagonal shooting light streaks */}
+      <span className="bg-shooting-beam beam-1" />
+      <span className="bg-shooting-beam beam-2" />
+
+      {/* Responsive rising peso coins & sparkles (visible on both desktop & mobile) */}
+      <div className="bg-coin-stream">
+        {BG_PARTICLES.map((p) => (
+          <span
+            key={p.id}
+            className={`bg-float-particle ${p.kind} size-${p.size}`}
+            style={{
+              '--p-left': p.left,
+              '--p-duration': p.duration,
+              '--p-delay': p.delay,
+            }}
+          >
+            {p.symbol}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -3393,6 +3393,215 @@ dialog.modal .modal-body {
 /* Dynamic, Immersive & Interactive Landing + Home Enhancements       */
 /* ================================================================== */
 
+/* Animated Background Scene (Grid, Aurora Orbs, Beams & Rising Coins) */
+.auth-shell {
+  --bg-spot-x: 50vw;
+  --bg-spot-y: 35vh;
+}
+.bg-grid-plane {
+  position: absolute;
+  inset: -60px;
+  background-image:
+    linear-gradient(to right, var(--green-subtle-border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--green-subtle-border) 1px, transparent 1px);
+  background-size: 54px 54px;
+  opacity: 0.24;
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 50%, #000 25%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 75% at 50% 50%, #000 25%, transparent 85%);
+  animation: bg-grid-drift 16s linear infinite;
+  pointer-events: none;
+}
+[data-theme="light"] .bg-grid-plane {
+  opacity: 0.32;
+}
+@keyframes bg-grid-drift {
+  0% { translate: 0 0; }
+  100% { translate: 54px 54px; }
+}
+
+.bg-interactive-glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    520px circle at var(--bg-spot-x, 50%) var(--bg-spot-y, 35%),
+    var(--green-subtle),
+    transparent 68%
+  );
+  opacity: 0.85;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.bg-aurora-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(48px);
+  pointer-events: none;
+  opacity: 0.45;
+}
+[data-theme="light"] .bg-aurora-orb {
+  opacity: 0.32;
+}
+.bg-aurora-orb.orb-lime {
+  width: min(420px, 68vw);
+  height: min(420px, 68vw);
+  top: 6%;
+  left: 8%;
+  background: radial-gradient(circle, rgba(215, 255, 63, 0.34) 0%, transparent 72%);
+  animation: aurora-drift-1 14s ease-in-out infinite;
+}
+.bg-aurora-orb.orb-gold {
+  width: min(380px, 64vw);
+  height: min(380px, 64vw);
+  bottom: 8%;
+  right: 10%;
+  background: radial-gradient(circle, rgba(245, 180, 60, 0.28) 0%, transparent 72%);
+  animation: aurora-drift-2 17s ease-in-out infinite;
+}
+.bg-aurora-orb.orb-emerald {
+  width: min(340px, 60vw);
+  height: min(340px, 60vw);
+  top: 48%;
+  left: 52%;
+  translate: -50% -50%;
+  background: radial-gradient(circle, var(--green-subtle) 0%, transparent 70%);
+  animation: aurora-drift-3 12s ease-in-out infinite;
+}
+@keyframes aurora-drift-1 {
+  0%, 100% { translate: 0 0; scale: 1; }
+  50% { translate: 48px 34px; scale: 1.18; }
+}
+@keyframes aurora-drift-2 {
+  0%, 100% { translate: 0 0; scale: 1; }
+  50% { translate: -44px -36px; scale: 1.15; }
+}
+@keyframes aurora-drift-3 {
+  0%, 100% { translate: -50% -50%; scale: 0.92; opacity: 0.35; }
+  50% { translate: -44% -56%; scale: 1.2; opacity: 0.6; }
+}
+
+/* Diagonal Shooting Light Beams */
+.bg-shooting-beam {
+  position: absolute;
+  width: 160px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--green), transparent);
+  border-radius: 999px;
+  opacity: 0;
+  rotate: -32deg;
+  pointer-events: none;
+  box-shadow: 0 0 12px var(--green);
+}
+.bg-shooting-beam.beam-1 {
+  top: 22%;
+  left: -20%;
+  animation: beam-streak 9s ease-in-out infinite;
+}
+.bg-shooting-beam.beam-2 {
+  top: 68%;
+  left: -20%;
+  animation: beam-streak 12s 4.5s ease-in-out infinite;
+}
+@keyframes beam-streak {
+  0% { translate: 0 0; opacity: 0; }
+  12% { opacity: 0.7; }
+  35% { translate: 135vw -55vh; opacity: 0; }
+  100% { translate: 135vw -55vh; opacity: 0; }
+}
+
+/* Rising Floating Peso Coins & Sparkles Stream (Desktop & Mobile) */
+.bg-coin-stream {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.bg-float-particle {
+  position: absolute;
+  bottom: -60px;
+  left: var(--p-left, 50%);
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-weight: 900;
+  user-select: none;
+  pointer-events: none;
+  animation: particle-rise var(--p-duration, 13s) var(--p-delay, 0s) linear infinite;
+}
+.bg-float-particle.size-sm {
+  width: 26px;
+  height: 26px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+.bg-float-particle.size-md {
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+  border-radius: 10px;
+}
+.bg-float-particle.size-lg {
+  width: 42px;
+  height: 42px;
+  font-size: 1.12rem;
+  border-radius: 12px;
+}
+.bg-float-particle.coin-gold {
+  color: #71400f;
+  background: linear-gradient(135deg, #f7d977 0%, #e5ad4b 60%, #b97424 100%);
+  border: 2px solid #fff0a2;
+  box-shadow: 0 0 16px rgba(247, 217, 119, 0.38);
+}
+.bg-float-particle.coin-lime {
+  color: var(--green);
+  background: var(--panel);
+  border: 1px solid var(--green-subtle-border);
+  box-shadow: 0 0 16px var(--green-subtle);
+}
+.bg-float-particle.spark-lime {
+  color: var(--green);
+  background: transparent;
+  border: 0;
+  text-shadow: 0 0 12px var(--green);
+  font-size: 1.05rem;
+}
+.bg-float-particle.spark-gold {
+  color: #f7d977;
+  background: transparent;
+  border: 0;
+  text-shadow: 0 0 12px rgba(247, 217, 119, 0.8);
+  font-size: 1.05rem;
+}
+@keyframes particle-rise {
+  0% {
+    translate: 0 0;
+    rotate: -12deg;
+    scale: 0.75;
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.42;
+  }
+  50% {
+    translate: 18px -52vh;
+    rotate: 14deg;
+    scale: 1;
+    opacity: 0.48;
+  }
+  88% {
+    opacity: 0.38;
+  }
+  100% {
+    translate: -14px -112vh;
+    rotate: -18deg;
+    scale: 0.82;
+    opacity: 0;
+  }
+}
+[data-theme="light"] .bg-float-particle {
+  opacity: 0.36;
+}
+
 /* Ambient Orbs & Floating Peso Tokens (Compositor-Friendly) */
 .shape-orb {
   width: 320px;
@@ -3405,54 +3614,9 @@ dialog.modal .modal-body {
   opacity: 0.45;
   animation: ambient-orb-breathe 9s ease-in-out infinite;
 }
-.floating-token {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  border: 1px solid var(--green-subtle-border);
-  background: var(--panel);
-  color: var(--green);
-  font-size: 0.85rem;
-  font-weight: 900;
-  opacity: 0.24;
-  pointer-events: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  animation: token-float 11s ease-in-out infinite;
-}
-[data-theme="light"] .floating-token {
-  opacity: 0.32;
-}
-.floating-token.token-1 {
-  top: 14%;
-  left: 8%;
-  animation-delay: 0s;
-}
-.floating-token.token-2 {
-  bottom: 18%;
-  right: 9%;
-  width: 38px;
-  height: 38px;
-  font-size: 1rem;
-  animation-delay: -3.5s;
-}
-.floating-token.token-3 {
-  top: 68%;
-  left: 46%;
-  width: 26px;
-  height: 26px;
-  font-size: 0.75rem;
-  animation-delay: -7s;
-}
 @keyframes ambient-orb-breathe {
   0%, 100% { scale: 1; opacity: 0.38; }
   50% { scale: 1.16; opacity: 0.62; }
-}
-@keyframes token-float {
-  0%, 100% { translate: 0 0; rotate: -8deg; }
-  50% { translate: 8px -18px; rotate: 10deg; }
 }
 
 /* Interactive Spotlight Surface */
@@ -4097,6 +4261,24 @@ dialog.modal .modal-body {
 }
 
 @media (max-width: 640px) {
+  .bg-grid-plane {
+    background-size: 38px 38px;
+  }
+  .bg-float-particle.size-lg {
+    width: 34px;
+    height: 34px;
+    font-size: 0.95rem;
+  }
+  .bg-float-particle.size-md {
+    width: 28px;
+    height: 28px;
+    font-size: 0.82rem;
+  }
+  .bg-float-particle.size-sm {
+    width: 22px;
+    height: 22px;
+    font-size: 0.7rem;
+  }
   .auth-aside .coin-stage:not(.coin-stage-compact) {
     width: 120px;
     height: 120px;
@@ -4152,7 +4334,10 @@ dialog.modal .modal-body {
   .shape-ring,
   .shape-diamond,
   .shape-orb,
-  .floating-token,
+  .bg-grid-plane,
+  .bg-aurora-orb,
+  .bg-shooting-beam,
+  .bg-float-particle,
   .auth-aside h1 em,
   .auth-benefits li,
   .auth-benefits li span,
