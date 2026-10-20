@@ -12,7 +12,22 @@ export const CATEGORIES = [
   { id: 'Utilities', icon: '💡', hint: 'Load, internet, bills, laundry' },
 ];
 export const CATEGORY_IDS = CATEGORIES.map((c) => c.id);
-export const categoryIcon = (id) => CATEGORIES.find((c) => c.id === id)?.icon || '🧾';
+export const categoryIcon = (id) => {
+  const map = {
+    Food: '🍔',
+    Transport: '🚌',
+    Entertainment: '🎮',
+    Study: '📚',
+    Utilities: '💡',
+    Fare: '🚌',
+    Meal: '🍱',
+    Drink: '🥤',
+    'School Needs': '📚',
+    Others: '🏷️',
+    Other: '🏷️',
+  };
+  return map[id] || CATEGORIES.find((c) => c.id === id)?.icon || '🧾';
+};
 
 export const INCOME_SOURCES = [
   { id: 'Allowance', icon: '👪' },
@@ -24,12 +39,30 @@ export const INCOME_SOURCES = [
 ];
 export const sourceIcon = (id) => INCOME_SOURCES.find((s) => s.id === id)?.icon || '💰';
 
-export const QUICK_EXPENSE_PRESETS = [
-  { label: 'Jeepney fare', amount: 15, category: 'Transport', note: 'Jeepney fare' },
-  { label: 'Student meal', amount: 75, category: 'Food', note: 'Campus lunch' },
-  { label: 'Coffee / drink', amount: 50, category: 'Food', note: 'Coffee / drink' },
-  { label: 'Printing', amount: 20, category: 'Study', note: 'Printing / xerox' },
+export const QUICK_SPEND_CLASSIFICATIONS = [
+  { id: 'Fare', label: 'Fare', icon: '🚌', defaultCategory: 'Transport' },
+  { id: 'Meal', label: 'Meal', icon: '🍱', defaultCategory: 'Food' },
+  { id: 'Drink', label: 'Drink', icon: '🥤', defaultCategory: 'Food' },
+  { id: 'School Needs', label: 'School Needs', icon: '📚', defaultCategory: 'Study' },
+  { id: 'Others', label: 'Others', icon: '🏷️', defaultCategory: 'Utilities' },
 ];
+
+export const classificationIcon = (id) =>
+  QUICK_SPEND_CLASSIFICATIONS.find((c) => c.id === id)?.icon || '⚡';
+
+export const DEFAULT_QUICK_PRESETS = [
+  { id: 'qp-fare-jeep', label: 'Jeepney fare', amount: 15, classification: 'Fare', category: 'Transport', note: 'Jeepney fare' },
+  { id: 'qp-fare-trike', label: 'Tricycle / Bus', amount: 25, classification: 'Fare', category: 'Transport', note: 'Commute fare' },
+  { id: 'qp-meal-lunch', label: 'Student meal', amount: 75, classification: 'Meal', category: 'Food', note: 'Campus meal' },
+  { id: 'qp-meal-snack', label: 'Merienda / snack', amount: 35, classification: 'Meal', category: 'Food', note: 'Merienda' },
+  { id: 'qp-drink-coffee', label: 'Coffee / drink', amount: 45, classification: 'Drink', category: 'Food', note: 'Coffee / drink' },
+  { id: 'qp-drink-water', label: 'Water / beverage', amount: 20, classification: 'Drink', category: 'Food', note: 'Water / beverage' },
+  { id: 'qp-school-print', label: 'Printing / xerox', amount: 20, classification: 'School Needs', category: 'Study', note: 'School printing' },
+  { id: 'qp-school-supplies', label: 'School supplies', amount: 30, classification: 'School Needs', category: 'Study', note: 'School supplies' },
+  { id: 'qp-others-load', label: 'Mobile load', amount: 50, classification: 'Others', category: 'Utilities', note: 'Prepaid load' },
+];
+
+export const QUICK_EXPENSE_PRESETS = DEFAULT_QUICK_PRESETS;
 
 /* ------------------------------------------------------------------ */
 /* Formatting & dates                                                  */

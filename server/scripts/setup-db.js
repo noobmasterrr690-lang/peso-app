@@ -29,3 +29,4 @@ try {
   console.warn('[db:setup] Note: Could not push schema to database during build (' + err.message + ').');
   console.warn('[db:setup] Build will continue normally. Schema will sync when a valid database is connected.');
 }
+

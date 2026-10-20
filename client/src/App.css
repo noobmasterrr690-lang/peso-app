@@ -4524,3 +4524,222 @@ dialog.modal .modal-body {
   flex-wrap: wrap;
   align-items: center;
 }
+
+/* ------------------------------------------------------------- */
+/* 1-Tap Quick Spend (Add, Delete & Classifications)             */
+/* ------------------------------------------------------------- */
+
+.home-quick-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.home-quick-actions,
+.quick-presets-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.primary-quick-btn {
+  background: var(--green) !important;
+  color: #061109 !important;
+  font-weight: 700 !important;
+  border: none !important;
+}
+
+.primary-quick-btn:hover {
+  filter: brightness(1.1);
+}
+
+.active-manage-btn {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+  font-weight: 700 !important;
+}
+
+.quick-category-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  overflow-x: auto;
+  padding: 4px 2px 6px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.quick-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.quick-category-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--panel-inner);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+  user-select: none;
+}
+
+.quick-category-tab:hover {
+  color: var(--ink);
+  border-color: var(--green);
+}
+
+.quick-category-tab.active {
+  background: var(--green-subtle);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 800;
+}
+
+.cat-count {
+  opacity: 0.75;
+  font-size: 0.68rem;
+}
+
+.quick-chip-container {
+  position: relative;
+  display: inline-flex;
+}
+
+.quick-chip-delete {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: #ffffff;
+  border: 2px solid var(--panel);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, background 0.15s ease;
+  z-index: 3;
+}
+
+.quick-chip-delete:hover {
+  transform: scale(1.18);
+  background: #dc2626;
+}
+
+.home-preset-btn.manage-mode {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.06);
+  cursor: default;
+}
+
+.preset-label-text {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quick-empty-hint {
+  padding: 8px 12px;
+  background: var(--panel-inner);
+  border-radius: 10px;
+  border: 1px dashed var(--line);
+  width: 100%;
+}
+
+.quick-manage-footer {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+  margin-top: 4px;
+}
+
+.quick-presets-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.quick-class-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.quick-class-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--panel-inner);
+  color: var(--ink);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.quick-class-chip:hover {
+  border-color: var(--green);
+  transform: translateY(-1px);
+}
+
+.quick-class-chip.active {
+  background: var(--green-subtle);
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 800;
+  box-shadow: 0 0 0 1px var(--green);
+}
+
+.quick-class-icon {
+  font-size: 1.3rem;
+}
+
+.quick-class-name {
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .home-quick-chips .quick-chip-container {
+    width: 100%;
+    display: flex;
+  }
+  .home-quick-chips .quick-chip-container .home-preset-btn {
+    width: 100%;
+    justify-content: space-between;
+    min-height: 42px;
+  }
+  .quick-class-picker {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

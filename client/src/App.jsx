@@ -13,7 +13,10 @@ import {
   Modal,
   PixelCompanion,
   ProgressBar,
+  DEFAULT_QUICK_PRESETS,
   QUICK_EXPENSE_PRESETS,
+  QUICK_SPEND_CLASSIFICATIONS,
+  classificationIcon,
   ToastArea,
   apiRequest,
   categoryIcon,
@@ -86,6 +89,111 @@ export default function App() {
   const [dashboard, setDashboard] = useState(null);
   const [goals, setGoals] = useState([]);
   const [reports, setReports] = useState(null);
+
+  /* ---------------- 1-tap quick spend presets ---------------- */
+  const [quickPresets, setQuickPresets] = useState(() => {
+    try {
+      const savedUser = JSON.parse(localStorage.getItem('peso-user') || 'null');
+      const key = savedUser?.id ? `peso-quick-presets-${savedUser.id}` : 'peso-quick-presets-guest';
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_QUICK_PRESETS;
+  });
+  const [quickFilter, setQuickFilter] = useState('All');
+  const [isManagingQuick, setIsManagingQuick] = useState(false);
+  const [isAddingQuick, setIsAddingQuick] = useState(false);
+  const [newQuickForm, setNewQuickForm] = useState({
+    label: '',
+    amount: '',
+    classification: 'Fare',
+    note: '',
+  });
+
+  useEffect(() => {
+    if (!user?.id) return;
+    try {
+      const key = `peso-quick-presets-${user.id}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setQuickPresets(parsed);
+          return;
+        }
+      }
+      const guestSaved = localStorage.getItem('peso-quick-presets-guest');
+      if (guestSaved) {
+        setQuickPresets(JSON.parse(guestSaved));
+        localStorage.setItem(key, guestSaved);
+      }
+    } catch {}
+  }, [user?.id]);
+
+  const updateQuickPresets = useCallback((updater) => {
+    setQuickPresets((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        const key = user?.id ? `peso-quick-presets-${user.id}` : 'peso-quick-presets-guest';
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, [user?.id]);
+
+  function handleAddQuickSubmit(e) {
+    e.preventDefault();
+    const numAmount = Number(newQuickForm.amount);
+    if (!newQuickForm.label.trim()) {
+      notify('Please enter a name for the 1-tap shortcut.', { tone: 'error' });
+      return;
+    }
+    if (!numAmount || numAmount <= 0 || Number.isNaN(numAmount)) {
+      notify('Please enter an amount greater than ₱0.', { tone: 'error' });
+      return;
+    }
+
+    const classMeta = QUICK_SPEND_CLASSIFICATIONS.find((c) => c.id === newQuickForm.classification) || QUICK_SPEND_CLASSIFICATIONS[0];
+    const newPreset = {
+      id: `qp-custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      label: newQuickForm.label.trim(),
+      amount: numAmount,
+      classification: classMeta.id,
+      category: classMeta.defaultCategory,
+      note: newQuickForm.note.trim() || newQuickForm.label.trim(),
+    };
+
+    updateQuickPresets((cur) => [...cur, newPreset]);
+    notify(`Added "${newPreset.label}" (₱${newPreset.amount}) under ${classMeta.label}!`, { tone: 'success' });
+    setIsAddingQuick(false);
+    setNewQuickForm({ label: '', amount: '', classification: 'Fare', note: '' });
+  }
+
+  function handleDeleteQuickPreset(preset) {
+    const previous = quickPresets;
+    updateQuickPresets((cur) => cur.filter((p) => p.id !== preset.id && p.label !== preset.label));
+    notify(`Deleted 1-tap shortcut "${preset.label}".`, {
+      tone: 'info',
+      action: {
+        label: 'Undo',
+        onClick: () => updateQuickPresets(previous),
+      },
+    });
+  }
+
+  function handleResetQuickPresets() {
+    updateQuickPresets(DEFAULT_QUICK_PRESETS);
+    notify('Reset 1-tap shortcuts back to defaults.', { tone: 'info' });
+    setIsManagingQuick(false);
+  }
+
+  const displayedQuickPresets = useMemo(() => {
+    if (quickFilter === 'All') return quickPresets;
+    return quickPresets.filter((p) => (p.classification || 'Others') === quickFilter);
+  }, [quickPresets, quickFilter]);
 
   /* ---------------- forms ---------------- */
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
@@ -357,11 +465,20 @@ export default function App() {
   }
 
   async function handleQuickAdd(preset) {
-    setBusy(`preset-${preset.label}`);
+    const pKey = preset.id || preset.label;
+    setBusy(`preset-${pKey}`);
     setCompanionExcited(true);
     setTimeout(() => setCompanionExcited(false), 750);
     try {
-      await addExpense({ amount: preset.amount, category: preset.category, date: localDateKey(), note: preset.note }, `${preset.label} (${formatCurrency(preset.amount)})`);
+      await addExpense(
+        {
+          amount: preset.amount,
+          category: preset.category || 'Other',
+          date: localDateKey(),
+          note: preset.note || preset.label,
+        },
+        `${preset.label} (${formatCurrency(preset.amount)})`
+      );
       setCompanionSpeech(`Logged ${preset.label} (₱${preset.amount})! Keep it up! 🪙`);
     } catch (error) {
       fail(error);
@@ -878,28 +995,110 @@ export default function App() {
 
             {/* Interactive 1-Tap Quick Spend Strip on Home */}
             <section className="home-quick-bar panel" aria-label="Quick 1-tap expense logging">
-              <div className="home-quick-info">
-                <span className="home-quick-badge">⚡ 1-Tap Quick Spend</span>
-                <span className="tiny-note">Log common student expenses for today in one tap (with instant Undo):</span>
-              </div>
-              <div className="home-quick-chips">
-                {QUICK_EXPENSE_PRESETS.map((preset) => (
+              <div className="home-quick-header">
+                <div className="home-quick-info">
+                  <span className="home-quick-badge">⚡ 1-Tap Quick Spend</span>
+                  <span className="tiny-note">
+                    {isManagingQuick
+                      ? 'Tap ✕ to remove any shortcut, or reset to defaults below:'
+                      : 'Log common expenses for today in one tap (with instant Undo):'}
+                  </span>
+                </div>
+                <div className="home-quick-actions">
                   <button
-                    key={preset.label}
                     type="button"
-                    className={`preset-chip home-preset-btn ${busy === `preset-${preset.label}` ? 'is-saving' : ''}`}
-                    disabled={Boolean(busy)}
-                    onClick={() => handleQuickAdd(preset)}
+                    className={`small-btn ${isManagingQuick ? 'active-manage-btn' : ''}`}
+                    onClick={() => setIsManagingQuick((v) => !v)}
+                    title={isManagingQuick ? 'Done managing shortcuts' : 'Manage and delete shortcuts'}
                   >
-                    <span aria-hidden="true">{categoryIcon(preset.category)}</span>
-                    <span>{preset.label}</span>
-                    <strong className="preset-chip-price">−₱{preset.amount}</strong>
+                    {isManagingQuick ? '✓ Done' : '⚙️ Manage'}
                   </button>
-                ))}
-                <button type="button" className="preset-chip home-preset-custom" onClick={() => go('expenses')}>
-                  ➕ Custom amount →
-                </button>
+                  <button
+                    type="button"
+                    className="small-btn primary-quick-btn"
+                    onClick={() => setIsAddingQuick(true)}
+                    title="Add a custom 1-tap quick spend shortcut"
+                  >
+                    ➕ Add
+                  </button>
+                </div>
               </div>
+
+              {/* Classification Filter Tabs */}
+              <div className="quick-category-tabs" role="tablist" aria-label="Classify quick spend">
+                <button
+                  type="button"
+                  className={`quick-category-tab ${quickFilter === 'All' ? 'active' : ''}`}
+                  onClick={() => setQuickFilter('All')}
+                >
+                  All ({quickPresets.length})
+                </button>
+                {QUICK_SPEND_CLASSIFICATIONS.map((c) => {
+                  const count = quickPresets.filter((p) => p.classification === c.id).length;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`quick-category-tab ${quickFilter === c.id ? 'active' : ''}`}
+                      onClick={() => setQuickFilter(c.id)}
+                    >
+                      <span aria-hidden="true">{c.icon}</span> {c.label} {count > 0 && <span className="cat-count">({count})</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="home-quick-chips">
+                {displayedQuickPresets.length > 0 ? (
+                  displayedQuickPresets.map((preset) => (
+                    <div key={preset.id || preset.label} className="quick-chip-container">
+                      <button
+                        type="button"
+                        className={`preset-chip home-preset-btn ${busy === `preset-${preset.id || preset.label}` ? 'is-saving' : ''} ${isManagingQuick ? 'manage-mode' : ''}`}
+                        disabled={Boolean(busy) || isManagingQuick}
+                        onClick={() => handleQuickAdd(preset)}
+                        title={isManagingQuick ? `Click ✕ to remove ${preset.label}` : `1-Tap log: ₱${preset.amount}`}
+                      >
+                        <span aria-hidden="true">{classificationIcon(preset.classification) || categoryIcon(preset.category)}</span>
+                        <span className="preset-label-text">{preset.label}</span>
+                        <strong className="preset-chip-price">−₱{preset.amount}</strong>
+                      </button>
+                      {isManagingQuick && (
+                        <button
+                          type="button"
+                          className="quick-chip-delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteQuickPreset(preset);
+                          }}
+                          aria-label={`Delete ${preset.label}`}
+                          title={`Delete ${preset.label}`}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))
+                ) : (
+                  <div className="quick-empty-hint">
+                    <p className="tiny-note">No {quickFilter} shortcuts yet. Click <strong>➕ Add</strong> to create one!</p>
+                  </div>
+                )}
+                {!isManagingQuick && (
+                  <button type="button" className="preset-chip home-preset-custom" onClick={() => go('expenses')}>
+                    ➕ Custom expense →
+                  </button>
+                )}
+              </div>
+
+              {isManagingQuick && (
+                <div className="quick-manage-footer">
+                  <span className="tiny-note">Managing shortcuts: Click ✕ on any shortcut above to delete.</span>
+                  <button type="button" className="link-btn small" onClick={handleResetQuickPresets}>
+                    ↺ Reset to defaults
+                  </button>
+                </div>
+              )}
             </section>
 
             {showChecklist && (
@@ -1136,14 +1335,79 @@ export default function App() {
                   )}
                 </div>
                 <div className="quick-presets-wrap">
-                  <p className="tiny-note">One-tap add for common purchases (saved for today — you can undo):</p>
-                  <div className="preset-chips">
-                    {QUICK_EXPENSE_PRESETS.map((preset) => (
-                      <button key={preset.label} type="button" className="preset-chip" disabled={Boolean(busy)} onClick={() => handleQuickAdd(preset)}>
-                        <span aria-hidden="true">{categoryIcon(preset.category)}</span> {preset.label} · ₱{preset.amount}
+                  <div className="quick-presets-header">
+                    <p className="tiny-note">1-Tap Quick Spend (saved for today — instant Undo):</p>
+                    <div className="quick-presets-actions">
+                      <button
+                        type="button"
+                        className={`small-btn ${isManagingQuick ? 'active-manage-btn' : ''}`}
+                        onClick={() => setIsManagingQuick((v) => !v)}
+                      >
+                        {isManagingQuick ? '✓ Done' : '⚙️ Manage'}
+                      </button>
+                      <button
+                        type="button"
+                        className="small-btn primary-quick-btn"
+                        onClick={() => setIsAddingQuick(true)}
+                      >
+                        ➕ Add
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter chips */}
+                  <div className="quick-category-tabs" role="tablist" aria-label="Classify quick spend">
+                    <button
+                      type="button"
+                      className={`quick-category-tab ${quickFilter === 'All' ? 'active' : ''}`}
+                      onClick={() => setQuickFilter('All')}
+                    >
+                      All ({quickPresets.length})
+                    </button>
+                    {QUICK_SPEND_CLASSIFICATIONS.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`quick-category-tab ${quickFilter === c.id ? 'active' : ''}`}
+                        onClick={() => setQuickFilter(c.id)}
+                      >
+                        <span aria-hidden="true">{c.icon}</span> {c.label}
                       </button>
                     ))}
                   </div>
+
+                  <div className="preset-chips">
+                    {displayedQuickPresets.map((preset) => (
+                      <div key={preset.id || preset.label} className="quick-chip-container">
+                        <button
+                          type="button"
+                          className={`preset-chip ${isManagingQuick ? 'manage-mode' : ''}`}
+                          disabled={Boolean(busy) || isManagingQuick}
+                          onClick={() => handleQuickAdd(preset)}
+                        >
+                          <span aria-hidden="true">{classificationIcon(preset.classification) || categoryIcon(preset.category)}</span> {preset.label} · ₱{preset.amount}
+                        </button>
+                        {isManagingQuick && (
+                          <button
+                            type="button"
+                            className="quick-chip-delete"
+                            onClick={() => handleDeleteQuickPreset(preset)}
+                            aria-label={`Delete ${preset.label}`}
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {isManagingQuick && (
+                    <div className="quick-manage-footer">
+                      <button type="button" className="link-btn small" onClick={handleResetQuickPresets}>
+                        ↺ Reset to defaults
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="divider"><span>or enter the details</span></div>
                 <form className="stack" onSubmit={handleExpenseSubmit}>
@@ -1571,6 +1835,76 @@ export default function App() {
       </main>
 
       {/* ============================ MODALS ============================ */}
+      {/* Add 1-Tap Quick Spend Modal */}
+      <Modal open={isAddingQuick} onClose={() => setIsAddingQuick(false)} labelledBy="add-quick-title">
+        <h2 id="add-quick-title" className="modal-title">⚡ Add 1-Tap Quick Spend</h2>
+        <p className="tiny-note">Create a personalized shortcut for common student purchases.</p>
+        <form className="stack" onSubmit={handleAddQuickSubmit}>
+          <Field label="Shortcut name" hint="e.g. Jeep to School, Campus Meal, Iced Coffee, Yellow Pad">
+            {(p) => (
+              <input
+                {...p}
+                type="text"
+                placeholder="e.g. Jeepney to Campus"
+                maxLength={40}
+                value={newQuickForm.label}
+                onChange={(e) => setNewQuickForm((f) => ({ ...f, label: e.target.value }))}
+                required
+                autoFocus
+              />
+            )}
+          </Field>
+
+          <Field label="Amount (₱)" hint="The amount deducted in 1 tap.">
+            {(p) => (
+              <AmountInput
+                id={p.id}
+                value={newQuickForm.amount}
+                onChange={(v) => setNewQuickForm((f) => ({ ...f, amount: v }))}
+                placeholder="0.00"
+              />
+            )}
+          </Field>
+
+          <div className="field">
+            <label className="field-label">Classification</label>
+            <div className="quick-class-picker" role="radiogroup" aria-label="Select classification">
+              {QUICK_SPEND_CLASSIFICATIONS.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={`quick-class-chip ${newQuickForm.classification === c.id ? 'active' : ''}`}
+                  onClick={() => setNewQuickForm((f) => ({ ...f, classification: c.id }))}
+                  aria-pressed={newQuickForm.classification === c.id}
+                >
+                  <span className="quick-class-icon" aria-hidden="true">{c.icon}</span>
+                  <span className="quick-class-name">{c.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="field-hint">Classified as: <strong>{newQuickForm.classification}</strong></p>
+          </div>
+
+          <Field label="Note" optional hint="Saved with the expense (defaults to the shortcut name).">
+            {(p) => (
+              <input
+                {...p}
+                type="text"
+                maxLength={80}
+                placeholder={newQuickForm.label || 'Optional note'}
+                value={newQuickForm.note}
+                onChange={(e) => setNewQuickForm((f) => ({ ...f, note: e.target.value }))}
+              />
+            )}
+          </Field>
+
+          <div className="modal-actions">
+            <button className="small-btn" type="button" onClick={() => setIsAddingQuick(false)}>Cancel</button>
+            <button className="primary-btn" type="submit">Save 1-Tap Shortcut</button>
+          </div>
+        </form>
+      </Modal>
+
       <HelpGuide open={guideOpen} onClose={closeGuide} onStart={() => { closeGuide(); go('dashboard'); }} />
 
       <Modal open={Boolean(editExpense)} onClose={() => setEditExpense(null)} labelledBy="edit-expense-title">
