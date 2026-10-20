@@ -134,9 +134,13 @@ export default function App() {
 
   const dismissToast = useCallback((id) => setToasts((list) => list.filter((t) => t.id !== id)), []);
   const notify = useCallback((text, { tone = 'success', action } = {}) => {
-    const id = `${Date.now()}-${Math.random()}`;
-    setToasts((list) => [...list.slice(-2), { id, text, tone, action }]);
-    setTimeout(() => setToasts((list) => list.filter((t) => t.id !== id)), action ? 8000 : 5000);
+    if (!text) return;
+    setToasts((list) => {
+      if (list.some((t) => t.text === text)) return list;
+      const id = `${Date.now()}-${Math.random()}`;
+      setTimeout(() => setToasts((cur) => cur.filter((t) => t.id !== id)), action ? 8000 : 5000);
+      return [...list.slice(-2), { id, text, tone, action }];
+    });
   }, []);
   /* ---------------- loading & auth ---------------- */
   const logout = useCallback((reason) => {
@@ -148,13 +152,16 @@ export default function App() {
     setReports(null);
     setGoals([]);
     setView('dashboard');
-    notify(reason || 'You’ve been signed out.', { tone: reason ? 'error' : 'info' });
+    setToasts([]);
+    if (reason) {
+      notify(reason, { tone: 'info' });
+    }
   }, [notify]);
 
   const fail = useCallback((error) => {
     const msg = error?.message || '';
     if (/token|Authentication|Session|user not found|user no longer exists/i.test(msg)) {
-      logout('Your session expired. Please sign in again.');
+      logout();
       return;
     }
     notify(msg || 'Something went wrong. Please try again.', { tone: 'error' });
@@ -165,7 +172,7 @@ export default function App() {
       setDashboard(await apiRequest('/dashboard', { token }));
     } catch (error) {
       if (/token|Authentication/i.test(error.message)) {
-        logout('Your session expired. Please sign in again.');
+        logout();
         return;
       }
       fail(error);
