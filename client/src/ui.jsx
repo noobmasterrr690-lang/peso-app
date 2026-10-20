@@ -177,14 +177,27 @@ export function AmbientShapes() {
     <div className="ambient-shapes" aria-hidden="true">
       <span className="shape shape-ring" />
       <span className="shape shape-diamond" />
+      <span className="shape shape-orb" />
+      <span className="floating-token token-1">₱</span>
+      <span className="floating-token token-2">₱</span>
+      <span className="floating-token token-3">🪙</span>
     </div>
   );
 }
 
 export function PixelCompanion({ compact = false, mood = 'happy', excited = false }) {
+  const [selfExcited, setSelfExcited] = useState(false);
+  const isExcited = excited || selfExcited;
+
+  function handleBounce() {
+    setSelfExcited(true);
+    setTimeout(() => setSelfExcited(false), 700);
+  }
+
   return (
     <div
-      className={`coin-stage ${compact ? 'coin-stage-compact' : ''} mood-${mood} ${excited ? 'is-excited' : ''}`}
+      className={`coin-stage ${compact ? 'coin-stage-compact' : ''} mood-${mood} ${isExcited ? 'is-excited' : ''}`}
+      onClick={handleBounce}
       aria-hidden="true"
     >
       <div className="coin-aura" />
@@ -193,7 +206,7 @@ export function PixelCompanion({ compact = false, mood = 'happy', excited = fals
         <span className="edge-coin edge-coin-one">₱</span>
         <span className="edge-coin edge-coin-two">₱</span>
         <span className="edge-coin edge-coin-three">₱</span>
-        {excited && (
+        {isExcited && (
           <div className="coin-burst-layer">
             <span className="burst-spark spark-1">+₱</span>
             <span className="burst-spark spark-2">✨</span>

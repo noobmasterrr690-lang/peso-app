@@ -3552,10 +3552,167 @@ dialog.modal .modal-body {
 .pixel-cheek-right { right: 20px; }
 .coin-stage-compact .pixel-cheek,
 .coin-stage-compact .coin-orbit-ring,
-.coin-stage-compact .coin-burst-layer,
-.auth-aside .pixel-cheek,
-.auth-aside .coin-orbit-ring {
+.coin-stage-compact .coin-burst-layer {
   display: none;
+}
+
+/* ================================================================== */
+/* Landing / Log-in Page Animations (Desktop & Mobile)                */
+/* ================================================================== */
+
+/* Ambient Ring & Diamond Continuous Motion */
+.shape-ring {
+  animation: shape-ring-float 12s ease-in-out infinite;
+}
+.shape-diamond {
+  animation: shape-diamond-float 14s ease-in-out infinite;
+}
+@keyframes shape-ring-float {
+  0%, 100% { translate: 0 0; scale: 1; }
+  50% { translate: -28px 24px; scale: 1.08; }
+}
+@keyframes shape-diamond-float {
+  0%, 100% { translate: 0 0; rotate: 0deg; scale: 1; }
+  50% { translate: 24px -22px; rotate: 18deg; scale: 1.07; }
+}
+
+/* Staggered Entrance & Shimmer on Auth Aside */
+.auth-aside .eyebrow {
+  animation: auth-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.auth-aside h1 {
+  animation: auth-fade-up 0.65s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.auth-aside h1 em {
+  display: inline-block;
+  background: linear-gradient(110deg, var(--green) 20%, #fff7b2 50%, var(--green) 80%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: text-shimmer 4s linear infinite, count-bob 3.6s ease-in-out infinite;
+}
+[data-theme="light"] .auth-aside h1 em {
+  background: linear-gradient(110deg, var(--green) 20%, #059669 50%, var(--green) 80%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+@keyframes count-bob {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -3px; }
+}
+.auth-aside .aside-copy {
+  animation: auth-fade-up 0.65s 0.16s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Animated Benefits List (Desktop & Mobile) */
+.auth-benefits li {
+  padding: 8px 13px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  width: fit-content;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14);
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.22s ease;
+  animation: auth-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both, benefit-float 4.2s ease-in-out infinite;
+}
+.auth-benefits li:nth-child(1) {
+  animation-delay: 0.22s, 0s;
+}
+.auth-benefits li:nth-child(2) {
+  animation-delay: 0.32s, 0.6s;
+}
+.auth-benefits li:nth-child(3) {
+  animation-delay: 0.42s, 1.2s;
+}
+.auth-benefits li:hover,
+.auth-benefits li:active {
+  transform: translateX(6px) scale(1.02);
+  border-color: var(--green);
+}
+.auth-benefits li span {
+  display: inline-block;
+  animation: benefit-icon-pop 2.8s ease-in-out infinite;
+}
+.auth-benefits li:nth-child(2) span { animation-delay: 0.4s; }
+.auth-benefits li:nth-child(3) span { animation-delay: 0.8s; }
+
+@keyframes benefit-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
+}
+@keyframes benefit-icon-pop {
+  0%, 100% { scale: 1; rotate: 0deg; }
+  50% { scale: 1.16; rotate: -8deg; }
+}
+
+/* Animated Coin Aura Pulse on Landing Page */
+.auth-aside .coin-aura {
+  animation: aura-pulse 4.5s ease-in-out infinite;
+}
+@keyframes aura-pulse {
+  0%, 100% { scale: 1; rotate: 18deg; opacity: 0.85; }
+  50% { scale: 1.08; rotate: 26deg; opacity: 1; }
+}
+.auth-aside .coin-stage-compact .pixel-companion {
+  animation: companion-float 3.2s ease-in-out infinite;
+}
+
+/* Animated Auth Card, Badge & CTA Shimmer */
+.auth-card {
+  animation: auth-card-enter 0.65s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both, auth-card-glow 6s ease-in-out infinite;
+}
+@keyframes auth-fade-up {
+  from { opacity: 0; translate: 0 16px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes auth-card-enter {
+  from { opacity: 0; translate: 0 20px; scale: 0.98; }
+  to { opacity: 1; translate: 0 0; scale: 1; }
+}
+@keyframes auth-card-glow {
+  0%, 100% { box-shadow: var(--shadow); }
+  50% { box-shadow: var(--shadow), 0 0 36px var(--green-subtle); }
+}
+.auth-card .badge-pill {
+  animation: badge-pulse 3.2s ease-in-out infinite;
+}
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--green-subtle); }
+  50% { box-shadow: 0 0 16px 2px var(--green-subtle); }
+}
+.auth-card form.stack {
+  opacity: 1;
+  translate: 0 0;
+  transition: opacity 0.25s ease, translate 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@starting-style {
+  .auth-card form.stack {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+.auth-card .primary-btn {
+  position: relative;
+  overflow: hidden;
+}
+.auth-card .primary-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -120%;
+  width: 65%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: skewX(-20deg);
+  animation: btn-shine 4.5s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes btn-shine {
+  0%, 65%, 100% { left: -120%; }
+  35% { left: 140%; }
 }
 .coin-stage.mood-cheering .pixel-smile {
   height: 16px;
@@ -3903,7 +4060,67 @@ dialog.modal .modal-body {
   }
 }
 
+@media (max-width: 860px) {
+  .auth-aside .coin-stage-compact {
+    display: none !important;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) {
+    display: grid !important;
+    width: 140px;
+    height: 140px;
+    margin: 10px auto 0;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .coin-aura {
+    width: 112px;
+    height: 112px;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .coin-orbit-ring {
+    width: 128px;
+    height: 128px;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .pixel-companion {
+    scale: 0.58;
+    transform-origin: center center;
+  }
+  .auth-benefits {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin: 14px auto 4px;
+  }
+  .auth-benefits li {
+    font-size: 0.78rem;
+    padding: 6px 11px;
+  }
+}
+
 @media (max-width: 640px) {
+  .auth-aside .coin-stage:not(.coin-stage-compact) {
+    width: 120px;
+    height: 120px;
+    margin: 6px auto 0;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .coin-aura {
+    width: 96px;
+    height: 96px;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .coin-orbit-ring {
+    width: 112px;
+    height: 112px;
+  }
+  .auth-aside .coin-stage:not(.coin-stage-compact) .pixel-companion {
+    scale: 0.5;
+  }
+  .auth-benefits {
+    gap: 6px;
+    margin: 12px auto 2px;
+  }
+  .auth-benefits li {
+    font-size: 0.74rem;
+    padding: 5px 10px;
+  }
   .home-quick-bar {
     flex-direction: column;
     align-items: stretch;
@@ -3932,12 +4149,23 @@ dialog.modal .modal-body {
   .pixel-companion,
   .edge-coin,
   .coin-orbit-ring,
+  .shape-ring,
+  .shape-diamond,
+  .shape-orb,
+  .floating-token,
+  .auth-aside h1 em,
+  .auth-benefits li,
+  .auth-benefits li span,
+  .auth-card,
+  .auth-card .badge-pill,
+  .auth-card .primary-btn::after,
   .shimmer-text,
   .live-pulse-dot,
   .badge-dot {
     animation: none !important;
   }
-  .view-transition {
+  .view-transition,
+  .auth-card form.stack {
     transition: none !important;
   }
 }
