@@ -30,7 +30,7 @@ function sanitizeUser(user) {
 }
 
 function makeToken(user) {
-  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+  return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 }
 
 async function getUserBalance(userId) {
@@ -853,6 +853,35 @@ app.get('/api/reports', authMiddleware, async (req, res) => {
   });
 });
 
+
+app.get('/api/backup', authMiddleware, async (req, res) => {
+  const userId = req.user.id;
+  const [user, balance, budget, expenses, goals, incomes] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
+    getUserBalance(userId),
+    getUserBudget(userId),
+    prisma.expense.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+    prisma.savingsGoal.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
+    prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+  ]);
+
+  return res.json({
+    user: user ? sanitizeUser(user) : null,
+    exportedAt: new Date().toISOString(),
+    balance: balance ? Number(balance.currentAmount) : 0,
+    budget: budget
+      ? {
+          period: budget.period,
+          totalLimit: Number(budget.totalLimit),
+          categoryLimits: await readJsonString(budget.categoryLimits),
+        }
+      : null,
+    savingsGoals: goals,
+    expenses,
+    incomes,
+  });
+});
+
 // Serve the compiled React client from the same local server.
 // API routes above stay unchanged, while browser requests can use one URL.
 app.use(express.static(clientDist));
@@ -868,28 +897,23 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
-  if (!isRealPostgres) {
+  try {
+    await prisma.user.count();
+    console.log((isRealPostgres ? 'PostgreSQL' : 'SQLite') + ' database verified.');
+  } catch (err) {
+    console.log('Database tables not ready (' + err.message + '). Auto-pushing schema...');
     try {
-      await prisma.user.count();
-      console.log('SQLite database verified.');
-    } catch (err) {
-      console.log('Database tables not ready (' + err.message + '). Auto-pushing schema...');
-      try {
-        execSync('npx prisma db push --skip-generate --accept-data-loss', {
-          cwd: path.resolve(__dirname, '..'),
-          stdio: 'inherit',
-        });
-        console.log('Database schema push completed successfully.');
-      } catch (pushErr) {
-        console.error('Failed to auto-push database schema:', pushErr);
-      }
-    }
-  } else {
-    try {
-      await prisma.user.count();
-      console.log('PostgreSQL database verified.');
-    } catch (err) {
-      console.error('PostgreSQL connection test failed:', err.message);
+      execSync('node scripts/prepare-db.js', {
+        cwd: path.resolve(__dirname, '..'),
+        stdio: 'inherit',
+      });
+      execSync('npx prisma db push --skip-generate --accept-data-loss', {
+        cwd: path.resolve(__dirname, '..'),
+        stdio: 'inherit',
+      });
+      console.log('Database schema push completed successfully.');
+    } catch (pushErr) {
+      console.error('Failed to auto-push database schema:', pushErr);
     }
   }
 

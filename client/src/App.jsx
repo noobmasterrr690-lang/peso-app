@@ -588,6 +588,37 @@ export default function App() {
     notify(`Downloaded ${list.length} expense${list.length === 1 ? '' : 's'} as a spreadsheet (CSV).`, { tone: 'info' });
   }
 
+  
+  async function exportFullBackup() {
+    try {
+      const data = await apiRequest('/backup', { token });
+      const jsonStr = JSON.stringify(data, null, 2);
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([jsonStr], { type: 'application/json;charset=utf-8' }));
+      link.download = `peso-data-backup-${localDateKey()}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      notify('Downloaded complete financial backup (JSON).', { tone: 'success' });
+    } catch {
+      const backupData = {
+        user: { name: user?.name, email: user?.email },
+        exportedAt: new Date().toISOString(),
+        balance: dashboard?.balance || 0,
+        savingsGoals: goals || [],
+        expenses: dashboard?.expenses || [],
+        incomes: dashboard?.incomes || [],
+        budget: dashboard?.budget || null,
+      };
+      const jsonStr = JSON.stringify(backupData, null, 2);
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([jsonStr], { type: 'application/json;charset=utf-8' }));
+      link.download = `peso-data-backup-${localDateKey()}.json`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      notify('Downloaded financial data backup (JSON).', { tone: 'info' });
+    }
+  }
+
   function handleCompanionTap() {
     const companionQuotes = [
       'Every peso counts! You’re doing great tracking your money.',
@@ -1452,7 +1483,12 @@ export default function App() {
           <>
             <PageIntro
               view="reports"
-              actions={<button type="button" className="secondary-btn" onClick={() => exportExpenses()} disabled={!expenses.length}>⬇ Download all expenses (CSV)</button>}
+              actions={
+                <div className="report-actions-row">
+                  <button type="button" className="secondary-btn" onClick={() => exportExpenses()} disabled={!expenses.length}>⬇ Download expenses (CSV)</button>
+                  <button type="button" className="secondary-btn" onClick={exportFullBackup}>💾 Backup all data (JSON)</button>
+                </div>
+              }
             />
             {!reports ? (
               <section className="panel loading-panel" aria-busy="true"><div className="skeleton" /><p className="tiny-note">Loading reports…</p></section>

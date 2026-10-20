@@ -4,6 +4,19 @@ This guide walks you through deploying **PESO** to the cloud for free using **Gi
 
 ---
 
+> [!IMPORTANT]
+> ### 🚨 Already Have Your Site Running on Render? (Save Your Data Permanently in 60 Seconds)
+> Render's free tier uses an ephemeral container disk that resets when the server sleeps after 15 minutes of inactivity. To ensure user accounts and savings data are saved permanently forever:
+> 1. Go to **[neon.tech](https://neon.tech)** and sign up with GitHub (100% Free Forever, serverless PostgreSQL).
+> 2. Click **Create Project** (e.g. `peso-db`) and copy your **Postgres Connection string** (starts with `postgresql://...`).
+> 3. Open your **Render Dashboard** -> click your **peso-app** Web Service -> click **Environment** on the left menu.
+> 4. Add or edit the variable:
+>    - **Key**: `DATABASE_URL`
+>    - **Value**: *(Paste your Neon connection string)*
+> 5. Click **Save Changes**! Render will automatically reload with persistent cloud storage. All logins, balances, and savings goals will now be permanently preserved across restarts and redeploys!
+
+---
+
 ## 3 Quick Steps Overview
 1. **GitHub**: Push your code to a free GitHub repository.
 2. **Neon**: Create a free PostgreSQL database (takes 30 seconds).

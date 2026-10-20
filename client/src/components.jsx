@@ -123,7 +123,12 @@ function PasswordInput({ id, value, onChange, autoComplete, minLength, described
 
 export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
   const [mode, setMode] = useState('login'); // login | register | reset
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [rememberEmail, setRememberEmail] = useState(() => localStorage.getItem('peso-remember-me') !== '0');
+  const [form, setForm] = useState(() => ({
+    name: '',
+    email: localStorage.getItem('peso-remembered-email') || '',
+    password: '',
+  }));
   const [reset, setReset] = useState({ step: 1, email: '', token: '', password: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -141,6 +146,13 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
         ? { email: credentials.email, password: credentials.password }
         : credentials;
       const response = await apiRequest(`/auth/${isLogin ? 'login' : 'register'}`, { method: 'POST', body: payload });
+      if (rememberEmail && credentials.email) {
+        localStorage.setItem('peso-remembered-email', credentials.email.trim());
+        localStorage.setItem('peso-remember-me', '1');
+      } else if (!rememberEmail) {
+        localStorage.removeItem('peso-remembered-email');
+        localStorage.setItem('peso-remember-me', '0');
+      }
       onAuthenticated(response, !isLogin);
     } catch (err) {
       setError(err.message);
@@ -278,10 +290,20 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
             <Field label="Password">
               {(p) => <PasswordInput id={p.id} value={form.password} onChange={update('password')} autoComplete="current-password" />}
             </Field>
+            <div className="remember-row">
+              <label className="remember-label">
+                <input
+                  type="checkbox"
+                  checked={rememberEmail}
+                  onChange={(e) => setRememberEmail(e.target.checked)}
+                />
+                <span>Remember my email</span>
+              </label>
+              <button type="button" className="link-btn" onClick={() => { setMode('reset'); setError(''); setReset((r) => ({ ...r, email: form.email })); }}>
+                Forgot password?
+              </button>
+            </div>
             <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-            <button type="button" className="link-btn" onClick={() => { setMode('reset'); setError(''); setReset((r) => ({ ...r, email: form.email })); }}>
-              Forgot your password?
-            </button>
           </form>
         )}
 
@@ -296,6 +318,14 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
             <Field label="Password" hint="At least 6 characters.">
               {(p) => <PasswordInput id={p.id} describedBy={p['aria-describedby']} value={form.password} onChange={update('password')} autoComplete="new-password" minLength={6} />}
             </Field>
+            <label className="remember-label" style={{ marginTop: '-0.25rem', marginBottom: '0.25rem' }}>
+              <input
+                type="checkbox"
+                checked={rememberEmail}
+                onChange={(e) => setRememberEmail(e.target.checked)}
+              />
+              <span>Remember my email on this device</span>
+            </label>
             <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Creating account…' : 'Create my account'}</button>
           </form>
         )}
