@@ -36,6 +36,7 @@ import {
   FinancialAlerts,
   GettingStarted,
   HelpGuide,
+  InstallAppModal,
   MonthlyTrendChart,
   PageIntro,
   TransactionGroups,
@@ -88,6 +89,63 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [dashboard, setDashboard] = useState(null);
   const [goals, setGoals] = useState([]);
+
+  
+  const [installModalOpen, setInstallModalOpen] = useState(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(() =>
+    typeof window !== 'undefined' &&
+    (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator?.standalone === true)
+  );
+
+  useEffect(() => {
+    function onBeforeInstallPrompt(e) {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    }
+    function onAppInstalled() {
+      setIsAppInstalled(true);
+      setDeferredInstallPrompt(null);
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
+  }, []);
+
+  async function handleTriggerInstall() {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const { outcome } = await deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredInstallPrompt(null);
+        setIsAppInstalled(true);
+        notify('PESO app installed on your device!');
+      }
+    }
+  }
+
+  async function handleShareApp() {
+    const shareUrl = window.location.origin;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'PESO — Personal Expense & Spending Organizer',
+          text: 'Join me on PESO to track our daily allowance, expenses, and savings goals!',
+          url: shareUrl,
+        });
+        return;
+      } catch {}
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      notify('App link copied! Send it to your friends so they can install PESO.');
+    } catch {
+      notify('Share this link with friends: ' + shareUrl);
+    }
+  }
 
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountProfile, setAccountProfile] = useState(null);
@@ -859,7 +917,16 @@ export default function App() {
   if (!token) {
     return (
       <>
-        <AuthScreen onAuthenticated={handleAuthenticated} notify={notify} theme={theme} toggleTheme={toggleTheme} />
+        <AuthScreen onAuthenticated={handleAuthenticated} notify={notify} theme={theme} toggleTheme={toggleTheme} onOpenInstall={() => setInstallModalOpen(true)} />
+        <InstallAppModal
+          open={installModalOpen}
+          onClose={() => setInstallModalOpen(false)}
+          deferredPrompt={deferredInstallPrompt}
+          onTriggerInstall={handleTriggerInstall}
+          isInstalled={isAppInstalled}
+          onShare={handleShareApp}
+          notify={notify}
+        />
         <ToastArea toasts={toasts} onDismiss={dismissToast} />
       </>
     );
@@ -897,6 +964,14 @@ export default function App() {
         </div>
         <div className="topbar-actions">
           <div className="topbar-tools">
+            <button
+              type="button"
+              className="theme-toggle-btn topbar-install-btn install-pill-btn"
+              onClick={() => setInstallModalOpen(true)}
+              title="Install PESO on your phone or share with friends"
+            >
+              <span className="theme-toggle-label">{isAppInstalled ? 'Share App' : 'Get App'}</span>
+            </button>
             <button
               type="button"
               className="theme-toggle-btn topbar-guide-btn"
@@ -2019,6 +2094,17 @@ export default function App() {
           </div>
         </div>
       </Modal>
+
+      {/* Install & Share App Modal */}
+      <InstallAppModal
+        open={installModalOpen}
+        onClose={() => setInstallModalOpen(false)}
+        deferredPrompt={deferredInstallPrompt}
+        onTriggerInstall={handleTriggerInstall}
+        isInstalled={isAppInstalled}
+        onShare={handleShareApp}
+        notify={notify}
+      />
 
       <HelpGuide open={guideOpen} onClose={closeGuide} onStart={() => { closeGuide(); go('dashboard'); }} />
 

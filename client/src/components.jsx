@@ -121,7 +121,7 @@ function PasswordInput({ id, value, onChange, autoComplete, minLength, described
   );
 }
 
-export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
+export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme, onOpenInstall }) {
   const [mode, setMode] = useState('login'); // login | register | reset
   const [rememberEmail, setRememberEmail] = useState(() => localStorage.getItem('peso-remember-me') !== '0');
   const [form, setForm] = useState(() => ({
@@ -253,7 +253,18 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
       <main className="auth-card">
         <div className="auth-card-header-row">
           <div className="badge-pill">PESO</div>
-          <button
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {onOpenInstall && (
+              <button
+                type="button"
+                className="theme-toggle-btn small install-pill-btn"
+                onClick={onOpenInstall}
+                title="Install PESO on your phone or share with friends"
+              >
+                <span className="theme-toggle-label">Get App</span>
+              </button>
+            )}
+            <button
             type="button"
             className="theme-toggle-btn small"
             onClick={toggleTheme}
@@ -261,7 +272,8 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
           >
             <span className="theme-toggle-icon" aria-hidden="true">{theme === 'dark' ? '☀️' : '🌙'}</span>
             <span className="theme-toggle-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </button>
+            </button>
+          </div>
         </div>
 
         <div className="auth-card-heading">
@@ -784,3 +796,78 @@ export function TransactionGroups({ items, kind, onEdit, onDelete, emptyState })
 }
 
 export { EmptyState };
+
+
+export function InstallAppModal({ open, onClose, deferredPrompt, onTriggerInstall, isInstalled, onShare, notify }) {
+  const shareUrl = typeof window !== 'undefined' ? window.location.origin : 'https://peso-app-sxev.onrender.com';
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      notify?.('Link copied! Send it to your friends on Messenger, Discord, or SMS.');
+    } catch {
+      notify?.('Share this link: ' + shareUrl);
+    }
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} labelledBy="install-app-title">
+      <h2 id="install-app-title" className="modal-title">Get the PESO Phone App &amp; Share</h2>
+      <div className="stack install-modal-stack">
+        <div className="install-hero-banner">
+          <img src="/icon-192.png" alt="PESO App Icon" className="install-app-icon" />
+          <div>
+            <strong>PESO Mobile App</strong>
+            <p className="tiny-note">Install PESO directly onto your home screen. Opens full-screen like a native app and keeps your account synced across all your devices.</p>
+          </div>
+        </div>
+
+        {deferredPrompt && !isInstalled && (
+          <button type="button" className="primary-btn install-now-btn" onClick={onTriggerInstall}>
+            Install PESO on This Device Now
+          </button>
+        )}
+
+        {isInstalled && (
+          <div className="db-status-pill green" style={{ alignSelf: 'flex-start' }}>
+            Installed on this device
+          </div>
+        )}
+
+        <div className="install-steps-grid">
+          <div className="install-platform-card">
+            <h4>Android (Chrome / Edge)</h4>
+            <ol className="install-list">
+              <li>Open PESO in <strong>Chrome</strong> on your phone.</li>
+              <li>Tap <strong>Install PESO</strong> above, or tap the <strong>⋮ menu</strong> (top-right).</li>
+              <li>Select <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+            </ol>
+          </div>
+
+          <div className="install-platform-card">
+            <h4>iPhone &amp; iPad (Safari)</h4>
+            <ol className="install-list">
+              <li>Open PESO in <strong>Safari</strong> on your iPhone.</li>
+              <li>Tap the <strong>Share</strong> button at the bottom bar.</li>
+              <li>Scroll down and tap <strong>Add to Home Screen</strong>, then tap <strong>Add</strong>.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="install-share-box">
+          <h4>Invite Friends to Use PESO</h4>
+          <p className="tiny-note">Send this link to your friends so they can create their own accounts and install the app on their phones:</p>
+          <div className="install-link-row">
+            <input type="text" readOnly value={shareUrl} className="install-url-input" onClick={(e) => e.target.select()} />
+            <button type="button" className="secondary-btn" onClick={copyLink}>Copy Link</button>
+            <button type="button" className="primary-btn" onClick={onShare}>Share</button>
+          </div>
+        </div>
+
+        <div className="modal-actions">
+          <button type="button" className="primary-btn" onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
