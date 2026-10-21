@@ -120,6 +120,48 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, status: 'healthy', message: 'Peso server is running.' });
 });
 
+
+const DEFAULT_PRESETS_DATA = [
+  { label: 'Jeepney fare', amount: 15, classification: 'Fare', category: 'Transport', note: 'Jeepney fare' },
+  { label: 'Tricycle / Bus', amount: 25, classification: 'Fare', category: 'Transport', note: 'Commute fare' },
+  { label: 'Student meal', amount: 75, classification: 'Meal', category: 'Food', note: 'Campus meal' },
+  { label: 'Merienda / snack', amount: 35, classification: 'Meal', category: 'Food', note: 'Merienda' },
+  { label: 'Coffee / drink', amount: 45, classification: 'Drink', category: 'Food', note: 'Coffee / drink' },
+  { label: 'Water / beverage', amount: 20, classification: 'Drink', category: 'Food', note: 'Water / beverage' },
+  { label: 'Printing / xerox', amount: 20, classification: 'School Needs', category: 'Study', note: 'School printing' },
+  { label: 'School supplies', amount: 30, classification: 'School Needs', category: 'Study', note: 'School supplies' },
+  { label: 'Mobile load', amount: 50, classification: 'Others', category: 'Utilities', note: 'Prepaid load' },
+];
+
+async function ensureUserPresets(userId) {
+  try {
+    const existing = await prisma.quickPreset.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (existing.length > 0) return existing;
+
+    await prisma.quickPreset.createMany({
+      data: DEFAULT_PRESETS_DATA.map((p) => ({
+        userId,
+        label: p.label,
+        amount: p.amount,
+        classification: p.classification,
+        category: p.category,
+        note: p.note,
+      })),
+    });
+
+    return prisma.quickPreset.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+  } catch (err) {
+    console.warn('ensureUserPresets warning:', err.message);
+    return [];
+  }
+}
+
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body || {};
 
@@ -151,6 +193,7 @@ app.post('/api/auth/register', async (req, res) => {
       },
     });
 
+    try { await ensureUserPresets(user.id); } catch {} 
     const token = makeToken(user);
     return res.status(201).json({
       token,
@@ -285,7 +328,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
 app.get('/api/dashboard', authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
-  const [balance, budget, expenses, goals, incomes] = await Promise.all([
+  const [balance, budget, expenses, goals, incomes, quickPresets] = await Promise.all([
     getUserBalance(userId),
     getUserBudget(userId),
     prisma.expense.findMany({
@@ -294,6 +337,7 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
     }),
     prisma.savingsGoal.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
     prisma.income.findMany({ where: { userId }, orderBy: { date: 'desc' } }),
+    ensureUserPresets(userId),
   ]);
 
   const totalExpenses = expenses.reduce((sum, item) => sum + Number(item.amount), 0);
@@ -356,6 +400,7 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
     categoryTotals,
     goals,
     savingsTotal,
+    quickPresets,
   });
 });
 
@@ -880,6 +925,122 @@ app.get('/api/backup', authMiddleware, async (req, res) => {
     expenses,
     incomes,
   });
+});
+
+
+app.get('/api/user/profile', authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      include: {
+        _count: {
+          select: {
+            expenses: true,
+            incomes: true,
+            savingsGoals: true,
+          },
+        },
+      },
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    const balance = await getUserBalance(req.user.id);
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      stats: {
+        expenseCount: user._count.expenses,
+        incomeCount: user._count.incomes,
+        goalCount: user._count.savingsGoals,
+        currentBalance: balance ? Number(balance.currentAmount) : 0,
+      },
+      database: {
+        provider: isRealPostgres ? 'postgresql' : 'sqlite',
+        isPersistentCloud: isRealPostgres,
+      },
+    });
+  } catch (err) {
+    console.error('Profile fetch error:', err);
+    res.status(500).json({ message: 'Unable to fetch user profile.' });
+  }
+});
+
+app.get('/api/quick-presets', authMiddleware, async (req, res) => {
+  try {
+    const presets = await ensureUserPresets(req.user.id);
+    res.json(presets);
+  } catch (error) {
+    console.error('Fetch quick presets error:', error);
+    res.status(500).json({ message: 'Unable to load quick spend presets.' });
+  }
+});
+
+app.post('/api/quick-presets', authMiddleware, async (req, res) => {
+  const { label, amount, classification, category, note } = req.body || {};
+  const numAmount = Number(amount);
+  if (!label || !numAmount || numAmount <= 0) {
+    return res.status(400).json({ message: 'Label and positive amount are required.' });
+  }
+  try {
+    const created = await prisma.quickPreset.create({
+      data: {
+        userId: req.user.id,
+        label: label.trim(),
+        amount: numAmount,
+        classification: classification || 'Others',
+        category: category || 'Other',
+        note: (note || label).trim(),
+      },
+    });
+    res.status(201).json(created);
+  } catch (error) {
+    console.error('Create quick preset error:', error);
+    res.status(500).json({ message: 'Unable to save quick spend preset.' });
+  }
+});
+
+app.delete('/api/quick-presets/:id', authMiddleware, async (req, res) => {
+  const { id } = req.params;
+  try {
+    const preset = await prisma.quickPreset.findFirst({
+      where: { id, userId: req.user.id },
+    });
+    if (!preset) {
+      return res.status(404).json({ message: 'Preset not found.' });
+    }
+    await prisma.quickPreset.delete({ where: { id } });
+    res.json({ message: 'Preset deleted.', deleted: preset });
+  } catch (error) {
+    console.error('Delete quick preset error:', error);
+    res.status(500).json({ message: 'Unable to delete quick spend preset.' });
+  }
+});
+
+app.post('/api/quick-presets/reset', authMiddleware, async (req, res) => {
+  try {
+    await prisma.quickPreset.deleteMany({ where: { userId: req.user.id } });
+    await prisma.quickPreset.createMany({
+      data: DEFAULT_PRESETS_DATA.map((p) => ({
+        userId: req.user.id,
+        label: p.label,
+        amount: p.amount,
+        classification: p.classification,
+        category: p.category,
+        note: p.note,
+      })),
+    });
+    const resetList = await prisma.quickPreset.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(resetList);
+  } catch (error) {
+    console.error('Reset quick presets error:', error);
+    res.status(500).json({ message: 'Unable to reset quick spend presets.' });
+  }
 });
 
 // Serve the compiled React client from the same local server.

@@ -88,6 +88,18 @@ export default function App() {
   const [view, setView] = useState('dashboard');
   const [dashboard, setDashboard] = useState(null);
   const [goals, setGoals] = useState([]);
+
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountProfile, setAccountProfile] = useState(null);
+
+  const openAccountModal = useCallback(async () => {
+    setAccountModalOpen(true);
+    try {
+      const data = await apiRequest('/user/profile', { token });
+      setAccountProfile(data);
+    } catch {}
+  }, [token]);
+
   const [reports, setReports] = useState(null);
 
   /* ---------------- 1-tap quick spend presets ---------------- */
@@ -144,7 +156,7 @@ export default function App() {
     });
   }, [user?.id]);
 
-  function handleAddQuickSubmit(e) {
+  async function handleAddQuickSubmit(e) {
     e.preventDefault();
     const numAmount = Number(newQuickForm.amount);
     if (!newQuickForm.label.trim()) {
@@ -158,7 +170,6 @@ export default function App() {
 
     const classMeta = QUICK_SPEND_CLASSIFICATIONS.find((c) => c.id === newQuickForm.classification) || QUICK_SPEND_CLASSIFICATIONS[0];
     const newPreset = {
-      id: `qp-custom-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       label: newQuickForm.label.trim(),
       amount: numAmount,
       classification: classMeta.id,
@@ -166,28 +177,56 @@ export default function App() {
       note: newQuickForm.note.trim() || newQuickForm.label.trim(),
     };
 
-    updateQuickPresets((cur) => [...cur, newPreset]);
+    const tempId = 'qp-temp-' + Date.now();
+    updateQuickPresets((cur) => [...cur, { ...newPreset, id: tempId }]);
     notify(`Added "${newPreset.label}" (₱${newPreset.amount}) under ${classMeta.label}!`, { tone: 'success' });
     setIsAddingQuick(false);
     setNewQuickForm({ label: '', amount: '', classification: 'Fare', note: '' });
+
+    try {
+      const savedInDb = await apiRequest('/quick-presets', { method: 'POST', body: newPreset, token });
+      if (savedInDb?.id) {
+        updateQuickPresets((cur) => cur.map((p) => p.id === tempId ? savedInDb : p));
+      }
+    } catch (err) {
+      console.warn('Could not save preset to server database:', err);
+    }
   }
 
-  function handleDeleteQuickPreset(preset) {
+  async function handleDeleteQuickPreset(preset) {
     const previous = quickPresets;
     updateQuickPresets((cur) => cur.filter((p) => p.id !== preset.id && p.label !== preset.label));
     notify(`Deleted 1-tap shortcut "${preset.label}".`, {
       tone: 'info',
       action: {
         label: 'Undo',
-        onClick: () => updateQuickPresets(previous),
+        onClick: () => {
+          updateQuickPresets(previous);
+          apiRequest('/quick-presets', { method: 'POST', body: preset, token }).catch(() => {});
+        },
       },
     });
+    if (preset.id && !preset.id.startsWith('qp-temp-')) {
+      try {
+        await apiRequest('/quick-presets/' + preset.id, { method: 'DELETE', token });
+      } catch (err) {
+        console.warn('Could not delete preset on server:', err);
+      }
+    }
   }
 
-  function handleResetQuickPresets() {
+  async function handleResetQuickPresets() {
     updateQuickPresets(DEFAULT_QUICK_PRESETS);
     notify('Reset 1-tap shortcuts back to defaults.', { tone: 'info' });
     setIsManagingQuick(false);
+    try {
+      const resetList = await apiRequest('/quick-presets/reset', { method: 'POST', token });
+      if (Array.isArray(resetList) && resetList.length > 0) {
+        updateQuickPresets(resetList);
+      }
+    } catch (err) {
+      console.warn('Could not reset presets on server:', err);
+    }
   }
 
   const displayedQuickPresets = useMemo(() => {
@@ -277,7 +316,11 @@ export default function App() {
 
   const loadDashboard = useCallback(async () => {
     try {
-      setDashboard(await apiRequest('/dashboard', { token }));
+      const d = await apiRequest('/dashboard', { token });
+      setDashboard(d);
+      if (Array.isArray(d?.quickPresets) && d.quickPresets.length > 0) {
+        setQuickPresets(d.quickPresets);
+      }
     } catch (error) {
       if (/token|Authentication/i.test(error.message)) {
         logout();
@@ -875,9 +918,20 @@ export default function App() {
             </button>
           </div>
           <div className="topbar-user">
-            <div className="user-orb" title={user?.name || 'Account'} aria-hidden="true">
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'P'}
-            </div>
+            <button
+              type="button"
+              className="topbar-user-badge"
+              onClick={openAccountModal}
+              title="View account profile and database info"
+            >
+              <div className="user-orb" aria-hidden="true">
+                {user?.name ? user.name.charAt(0).toUpperCase() : 'P'}
+              </div>
+              <div className="topbar-user-meta">
+                <span className="topbar-user-name">{user?.name || 'Account'}</span>
+                <span className="topbar-user-sub">Account details</span>
+              </div>
+            </button>
             <button type="button" onClick={() => logout()} className="secondary-btn topbar-signout-btn">
               Sign out
             </button>
@@ -1901,6 +1955,69 @@ export default function App() {
             <button className="primary-btn" type="submit">Save 1-Tap Shortcut</button>
           </div>
         </form>
+      </Modal>
+
+      
+      {/* Account Details & Database Status Modal */}
+      <Modal open={accountModalOpen} onClose={() => setAccountModalOpen(false)} labelledBy="account-modal-title">
+        <h2 id="account-modal-title" className="modal-title">Account Details</h2>
+        <div className="account-modal-content stack">
+          <div className="account-hero-card">
+            <div className="account-hero-avatar">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="account-hero-info">
+              <h3>{user?.name || 'User'}</h3>
+              <p className="account-email-label">{user?.email}</p>
+              <span className="account-status-pill">Active Account</span>
+            </div>
+          </div>
+
+          <div className="account-stats-grid">
+            <div className="account-stat-box">
+              <span className="stat-label">Logged Expenses</span>
+              <strong>{accountProfile?.stats?.expenseCount ?? expenses.length}</strong>
+            </div>
+            <div className="account-stat-box">
+              <span className="stat-label">Income Records</span>
+              <strong>{accountProfile?.stats?.incomeCount ?? incomes.length}</strong>
+            </div>
+            <div className="account-stat-box">
+              <span className="stat-label">Savings Goals</span>
+              <strong>{accountProfile?.stats?.goalCount ?? goals.length}</strong>
+            </div>
+            <div className="account-stat-box">
+              <span className="stat-label">Current Balance</span>
+              <strong>{formatCurrency(balance)}</strong>
+            </div>
+          </div>
+
+          <div className="account-db-card">
+            <div className="account-db-header">
+              <h4>Database Status</h4>
+              <span className={accountProfile?.database?.isPersistentCloud ? 'db-status-pill green' : 'db-status-pill blue'}>
+                {accountProfile?.database?.isPersistentCloud ? 'PostgreSQL Cloud Database' : 'SQLite Local Database'}
+              </span>
+            </div>
+            <p className="tiny-note">
+              {accountProfile?.database?.isPersistentCloud
+                ? 'All your transactions, balance, and quick spend shortcuts are stored permanently in the PostgreSQL cloud database.'
+                : 'All transactions are currently stored under your account. To keep data permanently across server restarts in the cloud, link your cloud database URL in Render.'}
+            </p>
+          </div>
+
+          <div className="modal-actions">
+            <button type="button" className="secondary-btn" onClick={exportFullBackup}>
+              Download Backup
+            </button>
+            <button type="button" className="secondary-btn" onClick={() => { setAccountModalOpen(false); logout(); }}>
+              Sign out
+            </button>
+            <button type="button" className="primary-btn" onClick={() => setAccountModalOpen(false)}>
+              Done
+            </button>
+          </div>
+        </div>
       </Modal>
 
       <HelpGuide open={guideOpen} onClose={closeGuide} onStart={() => { closeGuide(); go('dashboard'); }} />

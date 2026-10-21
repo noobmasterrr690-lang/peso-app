@@ -19,6 +19,7 @@ model User {
   savingsGoals  SavingsGoal[]
   resetTokens   PasswordResetToken[]
   incomes       Income[]
+  quickPresets  QuickPreset[]
 }
 
 model Balance {
@@ -81,3 +82,14 @@ model Income {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model QuickPreset {
+  id             String   @id @default(cuid())
+  userId         String
+  label          String
+  amount         Float
+  classification String   @default("Others")
+  category       String   @default("Other")
+  note           String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

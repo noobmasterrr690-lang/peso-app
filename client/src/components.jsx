@@ -214,8 +214,8 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
   }
 
   const heading = {
-    login: { title: 'Welcome back', sub: 'Sign in to see your balance, budget and savings.' },
-    register: { title: 'Create your account', sub: 'Free, private, and it only takes a minute.' },
+    login: { title: 'Sign in to PESO', sub: 'Enter your email and password to access your saved transactions and balance.' },
+    register: { title: 'Create your account', sub: 'Create your personal account. All your expenses, budgets, and savings are saved under your account.' },
     reset: { title: 'Reset your password', sub: reset.step === 1 ? 'Enter the email you signed up with.' : 'Choose a new password.' },
   }[mode];
 
@@ -272,10 +272,10 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
         {mode !== 'reset' && (
           <div className="auth-toggle" role="group" aria-label="Choose sign in or sign up">
             <button type="button" className={mode === 'login' ? 'active' : ''} aria-pressed={mode === 'login'} onClick={() => { setMode('login'); setError(''); }}>
-              I have an account
+              Sign in
             </button>
             <button type="button" className={mode === 'register' ? 'active' : ''} aria-pressed={mode === 'register'} onClick={() => { setMode('register'); setError(''); }}>
-              I’m new here
+              Create account
             </button>
           </div>
         )}
@@ -326,7 +326,10 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
               />
               <span>Remember my email on this device</span>
             </label>
-            <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Creating account…' : 'Create my account'}</button>
+            <button type="submit" className="primary-btn" disabled={busy}>{busy ? 'Creating account…' : 'Create Account'}</button>
+            <p className="tiny-note" style={{ textAlign: 'center', marginTop: '6px' }}>
+              Your account and transactions are saved securely to your personal database profile.
+            </p>
           </form>
         )}
 
@@ -362,8 +365,8 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
         {mode !== 'reset' && (
           <div className="auth-demo">
             <div>
-              <strong>Just looking around?</strong>
-              <span>Try PESO with sample data — no sign-up needed.</span>
+              <strong>Looking around first?</strong>
+              <span>Explore PESO with sample student data without an account.</span>
             </div>
             <button
               type="button"
@@ -371,7 +374,7 @@ export function AuthScreen({ onAuthenticated, notify, theme, toggleTheme }) {
               disabled={busy}
               onClick={startDemo}
             >
-              {busy ? 'Starting demo…' : 'Try the demo'}
+              {busy ? 'Starting demo…' : 'Explore Demo'}
             </button>
           </div>
         )}
