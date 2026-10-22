@@ -176,6 +176,9 @@ export default function App() {
   const [quickFilter, setQuickFilter] = useState('All');
   const [isManagingQuick, setIsManagingQuick] = useState(false);
   const [isAddingQuick, setIsAddingQuick] = useState(false);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isAddIncomeOpen, setIsAddIncomeOpen] = useState(false);
+  const [activityFilter, setActivityFilter] = useState('all'); // all | expense | income
   const [newQuickForm, setNewQuickForm] = useState({
     label: '',
     amount: '',
@@ -440,6 +443,19 @@ export default function App() {
   }
 
   function go(nextView) {
+    if (nextView === 'expenses') {
+      setIsAddExpenseOpen(true);
+      return;
+    }
+    if (nextView === 'income') {
+      setIsAddIncomeOpen(true);
+      return;
+    }
+    if (nextView === 'budgets') {
+      setView('goals');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
     setView(nextView);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
@@ -476,6 +492,23 @@ export default function App() {
       .sort((a, b) => new Date(b.date) - new Date(a.date) || new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
       .slice(0, 6);
   }, [expenses, incomes]);
+
+  
+  const filteredActivityList = useMemo(() => {
+    let list = recentActivity;
+    if (activityFilter === 'expense') {
+      list = list.filter((i) => i.kind === 'expense');
+    } else if (activityFilter === 'income') {
+      list = list.filter((i) => i.kind === 'income');
+    }
+    if (expenseSearch.trim()) {
+      const q = expenseSearch.toLowerCase();
+      list = list.filter(
+        (i) => (i.note || '').toLowerCase().includes(q) || (i.category || i.source || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [recentActivity, activityFilter, expenseSearch]);
 
   const filteredExpenses = useMemo(() => {
     let result = [...expenses];
@@ -558,6 +591,7 @@ export default function App() {
     try {
       await addExpense({ ...expenseForm, amount: Number(expenseForm.amount) }, `${formatCurrency(expenseForm.amount)} ${expenseForm.category} expense`);
       setExpenseForm((f) => ({ ...emptyExpense(), category: f.category, date: f.date }));
+      setIsAddExpenseOpen(false);
     } catch (error) {
       fail(error);
     } finally {
@@ -1038,91 +1072,82 @@ export default function App() {
         )}
 
         {view === 'dashboard' && dashboard && (
-          <div className="dashboard-view">
-            <section className="dashboard-hero spotlight-surface" onPointerMove={handleSurfaceSpot}>
-              <div className="hero-copy">
-                <div className="eyebrow lime">
-                  <span className="live-pulse-dot" aria-hidden="true" /> {formatMonthName(currentMonthKey())} · at a glance
-                </div>
-                <h1>
-                  You have<br />
-                  <span className="hero-balance-amount">
-                    <AnimatedCurrency value={balance} />
-                  </span>
-                </h1>
-                <p>
-                  {hasBudget
-                    ? <>You’ve spent <strong>{formatCurrency(budget.spent)}</strong> of your <strong>{formatCurrency(budget.totalLimit)}</strong> budget this month{budget.remaining >= 0 ? <> — <strong>{formatCurrency(budget.remaining)}</strong> left.</> : <> — that’s <strong className="text-danger">{formatCurrency(-budget.remaining)} over</strong>.</>}</>
-                    : 'Set a monthly budget and PESO will tell you how much you can safely spend each day.'}
-                </p>
-                {safeDailySpend > 0 && (
-                  <div className="safe-spend-pill">
-                    <div className="safe-spend-pill-top">
-                      <span>✨ Safe daily spend: <strong><AnimatedCurrency value={safeDailySpend} /></strong> / day</span>
-                      <small>{daysLeft} day{daysLeft === 1 ? '' : 's'} left this month</small>
-                    </div>
-                  </div>
+          <div className="dashboard-view simplified-dashboard">
+            {/* Clean Balance Hero Card */}
+            <section className="clean-hero-card panel">
+              <div className="clean-hero-header">
+                <span className="clean-hero-date">{formatDayLabel(todayKey)}</span>
+                {!isEditingBalance && (
+                  <button type="button" className="link-btn small" onClick={startBalanceEdit}>
+                    Correct cash
+                  </button>
                 )}
-                <div className="hero-actions">
-                  <button type="button" className="primary-btn hero-cta" onClick={() => go('expenses')}>− I spent money</button>
-                  <button type="button" className="secondary-btn hero-cta" onClick={() => go('income')}>+ I received money</button>
-                  {!hasBudget && <button type="button" className="secondary-btn hero-cta" onClick={() => go('budgets')}>Set a budget</button>}
-                </div>
               </div>
-              <div className="hero-bottom-strip">
-                <div
-                  className="hero-companion-wrap"
-                  role="button"
-                  tabIndex={0}
-                  onClick={handleCompanionTap}
-                  onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), handleCompanionTap())}
-                  title="PESO Companion: Click for a financial tip!"
-                  aria-label="PESO Companion mascot. Click for financial encouragement."
-                >
-                  <PixelCompanion
-                    mood={hasBudget && budget.remaining < 0 ? 'alert' : safeDailySpend > 0 && spentToday <= safeDailySpend ? 'cheering' : 'happy'}
-                    excited={companionExcited}
-                  />
-                  <div className="hero-companion-caption">
-                    {companionSpeech ? (
-                      <span className="companion-speech-inline" key={companionSpeech}>{companionSpeech}</span>
-                    ) : (
-                      <span className="companion-tap-hint">🪙 Tap companion for a tip</span>
-                    )}
+
+              {isEditingBalance ? (
+                <form className="balance-edit-form" onSubmit={handleBalanceSubmit}>
+                  <label className="field-hint" htmlFor="balance-input">How much cash + e-wallet money do you actually have?</label>
+                  <AmountInput id="balance-input" value={balanceForm} onChange={setBalanceForm} min="0" autoFocus />
+                  <div className="balance-edit-actions">
+                    <button className="primary-btn" type="submit" disabled={busy === 'balance'}>
+                      {busy === 'balance' ? 'Saving…' : 'Save Balance'}
+                    </button>
+                    <button className="small-btn" type="button" onClick={() => setIsEditingBalance(false)}>
+                      Cancel
+                    </button>
                   </div>
-                </div>
-                <div className="hero-ticket">
-                  <div className="hero-ticket-top">
-                    <span>Spent today</span>
-                    {safeDailySpend > 0 && (
-                      <span className={`ticket-status-badge ${spentToday > safeDailySpend ? 'over' : spentToday > safeDailySpend * 0.8 ? 'warn' : 'ok'}`}>
-                        {spentToday > safeDailySpend ? '⚠️ Over target' : spentToday > safeDailySpend * 0.8 ? '⚡ Near limit' : '✨ On track'}
-                      </span>
-                    )}
+                </form>
+              ) : (
+                <div className="clean-hero-body">
+                  <span className="clean-hero-label">Available Balance</span>
+                  <div className="clean-hero-amount">
+                    <AnimatedCurrency value={balance} />
                   </div>
-                  <strong className={safeDailySpend > 0 && spentToday > safeDailySpend ? 'text-danger' : ''}>
-                    <AnimatedCurrency value={spentToday} />
-                  </strong>
-                  {safeDailySpend > 0 && (
-                    <ProgressBar
-                      value={spentToday}
-                      max={safeDailySpend}
-                      tone={spentToday > safeDailySpend ? 'over' : 'success'}
-                      label="Today's spending against daily safe limit"
-                    />
+                  {hasBudget ? (
+                    <div className="clean-budget-status">
+                      <div className="clean-budget-text">
+                        <span>Spent {formatCurrency(budget.spent)} of {formatCurrency(budget.totalLimit)} budget</span>
+                        {safeDailySpend > 0 && (
+                          <span className="safe-spend-badge">
+                            Safe spend: {formatCurrency(safeDailySpend)}/day
+                          </span>
+                        )}
+                      </div>
+                      <ProgressBar
+                        value={budget.spent}
+                        max={budget.totalLimit}
+                        tone={budget.remaining < 0 ? 'over' : 'success'}
+                        label="Monthly budget used"
+                      />
+                    </div>
+                  ) : (
+                    <p className="clean-hero-hint">
+                      Your total money on hand. Tap <strong>Budget &amp; Goals</strong> below to set your monthly limit.
+                    </p>
                   )}
-                  <small>
-                    {safeDailySpend > 0
-                      ? spentToday > safeDailySpend
-                        ? `${formatCurrency(spentToday - safeDailySpend)} over today’s target`
-                        : `${formatCurrency(safeDailySpend - spentToday)} left for today`
-                      : 'Log expenses to track your day'}
-                  </small>
                 </div>
+              )}
+
+              {/* Two Big Primary Action Buttons */}
+              <div className="clean-hero-actions">
+                <button
+                  type="button"
+                  className="primary-btn hero-action-btn spend-btn"
+                  onClick={() => setIsAddExpenseOpen(true)}
+                >
+                  − Log Expense
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn hero-action-btn income-btn"
+                  onClick={() => setIsAddIncomeOpen(true)}
+                >
+                  + Add Money
+                </button>
               </div>
             </section>
 
-            {/* Interactive 1-Tap Quick Spend Strip on Home */}
+            {/* 1-Tap Quick Spend Strip */}
             <section className="home-quick-bar panel" aria-label="Quick 1-tap expense logging">
               <div className="home-quick-header">
                 <div className="home-quick-info">
@@ -1130,7 +1155,7 @@ export default function App() {
                   <span className="tiny-note">
                     {isManagingQuick
                       ? 'Tap × to remove any shortcut, or reset to defaults below:'
-                      : 'Log common expenses for today in one tap (with instant Undo):'}
+                      : 'Common student expenses (tap to log in one tap with instant Undo):'}
                   </span>
                 </div>
                 <div className="home-quick-actions">
@@ -1212,11 +1237,6 @@ export default function App() {
                     <p className="tiny-note">No {quickFilter} shortcuts yet. Click <strong>+ Add</strong> to create one!</p>
                   </div>
                 )}
-                {!isManagingQuick && (
-                  <button type="button" className="preset-chip home-preset-custom" onClick={() => go('expenses')}>
-                    Custom expense →
-                  </button>
-                )}
               </div>
 
               {isManagingQuick && (
@@ -1229,181 +1249,164 @@ export default function App() {
               )}
             </section>
 
-            {showChecklist && (
-              <GettingStarted
-                steps={checklistSteps}
-                onDismiss={() => {
-                  localStorage.setItem(`peso-checklist-hidden-${user?.id}`, '1');
-                  setChecklistHidden(true);
-                }}
-              />
-            )}
-
-            <div className="grid-layout">
-              <div className="stat-card tone-blue balance-card">
-                <div className="balance-card-heading">
-                  <div className="label">👛 Balance</div>
-                  {!isEditingBalance && <button className="edit-balance-btn" type="button" onClick={startBalanceEdit}>Correct it</button>}
-                </div>
-                {isEditingBalance ? (
-                  <form className="balance-edit-form" onSubmit={handleBalanceSubmit}>
-                    <label className="field-hint" htmlFor="balance-input">How much cash + e-wallet money do you have right now?</label>
-                    <AmountInput id="balance-input" value={balanceForm} onChange={setBalanceForm} min="0" autoFocus />
-                    <div className="balance-edit-actions">
-                      <button className="primary-btn" type="submit" disabled={busy === 'balance'}>{busy === 'balance' ? 'Saving…' : 'Save'}</button>
-                      <button className="small-btn" type="button" onClick={() => setIsEditingBalance(false)}>Cancel</button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <div className="value"><AnimatedCurrency value={balance} /></div>
-                    <div className="hint">Money you have right now. Doesn’t match your wallet? Correct it.</div>
-                  </>
-                )}
-              </div>
-              <StatCard
-                title="💸 Spent this month"
-                value={<AnimatedCurrency value={monthSpent} />}
-                hint={`${monthExpenses.length} expense${monthExpenses.length === 1 ? '' : 's'} logged`}
-                tone="amber"
-                actionLabel="View →"
-                onClick={() => go('expenses')}
-              />
-              <StatCard
-                title="💰 Received this month"
-                value={<AnimatedCurrency value={monthIncome} />}
-                hint={monthIncome - monthSpent >= 0 ? `${formatCurrency(monthIncome - monthSpent)} more in than out` : `${formatCurrency(monthSpent - monthIncome)} more out than in`}
-                tone="green"
-                actionLabel="View →"
-                onClick={() => go('income')}
-              />
-              <StatCard
-                title="🎯 In savings goals"
-                value={<AnimatedCurrency value={savingsTotal} />}
-                hint={goals.length ? `Across ${goals.length} goal${goals.length === 1 ? '' : 's'}` : 'Tap to create a goal'}
-                tone="blue"
-                actionLabel="Goals →"
-                onClick={() => go('goals')}
-              />
-            </div>
-
-            <FinancialAlerts dashboard={dashboard} onNavigate={go} />
-
-            <div className="content-grid">
-              <section className="panel" aria-labelledby="where-title">
-                <div className="panel-heading-row">
-                  <div>
-                    <h2 className="panel-title" id="where-title">Where your money went</h2>
-                    <p className="tiny-note">This month, by category · tap a category to filter</p>
-                  </div>
-                  <button type="button" className="small-btn" onClick={() => go('budgets')}>{hasBudget ? 'Edit limits' : 'Set limits'}</button>
-                </div>
-                {hasBudget && (
-                  <div className="overall-budget">
-                    <div className="label-row">
-                      <span>Whole budget ({Math.min(100, Math.round((budget.spent / Math.max(1, budget.totalLimit)) * 100))}%)</span>
-                      <span>{formatCurrency(budget.spent)} / {formatCurrency(budget.totalLimit)}</span>
-                    </div>
-                    <ProgressBar value={budget.spent} max={budget.totalLimit} tone={budget.remaining < 0 ? 'over' : ''} label="Monthly budget used" />
-                  </div>
-                )}
-                {monthExpenses.length ? (
-                  <ul className="bar-chart">
-                    {CATEGORIES.filter((c) => monthCategoryTotals[c.id] || Number(budget?.categoryLimits?.[c.id]) > 0)
-                      .sort((a, b) => (monthCategoryTotals[b.id] || 0) - (monthCategoryTotals[a.id] || 0))
-                      .map((c) => {
-                        const spent = monthCategoryTotals[c.id] || 0;
-                        const limit = Number(budget?.categoryLimits?.[c.id] || 0);
-                        const maxSpent = Math.max(...Object.values(monthCategoryTotals), 1);
-                        const over = limit > 0 && spent > limit;
-                        const sharePct = monthSpent > 0 ? Math.round((spent / monthSpent) * 100) : 0;
-                        return (
-                          <li
-                            key={c.id}
-                            className="chart-row interactive-chart-row"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              setSelectedCategory(c.id);
-                              go('expenses');
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                setSelectedCategory(c.id);
-                                go('expenses');
-                              }
-                            }}
-                            title={`Filter expenses by ${c.id}`}
-                          >
-                            <div className="label-row">
-                              <span>
-                                <span aria-hidden="true">{c.icon}</span> {c.id}
-                                {sharePct > 0 && <small className="category-share-badge">{sharePct}%</small>}
-                              </span>
-                              <span className={over ? 'text-danger' : ''}>
-                                {formatCurrency(spent)}{limit > 0 && <span className="muted"> / {formatCurrency(limit)}</span>}
-                              </span>
-                            </div>
-                            <div className="bar-track">
-                              <div className={`bar-fill ${over ? 'over' : ''}`} style={{ width: `${limit > 0 ? Math.min((spent / limit) * 100, 100) : (spent / maxSpent) * 100}%` }} />
-                            </div>
-                          </li>
-                        );
-                      })}
-                  </ul>
-                ) : (
-                  <EmptyState icon="🧾" title="Nothing spent this month yet" text="When you log expenses, you’ll see which categories take most of your money." action={<button type="button" className="primary-btn" onClick={() => go('expenses')}>Log an expense</button>} />
-                )}
-              </section>
-
-              <section className="panel" aria-labelledby="recent-title">
-                <div className="panel-heading-row">
-                  <div>
-                    <h2 className="panel-title" id="recent-title">Recent activity</h2>
-                    <p className="tiny-note">Your latest money in and out · tap an item to view</p>
-                  </div>
-                  <button type="button" className="small-btn" onClick={() => go('expenses')}>See all</button>
-                </div>
-                {recentActivity.length ? (
-                  <ul className="recent-list">
-                    {recentActivity.map((item) => (
-                      <li
-                        key={`${item.kind}-${item.id}`}
-                        className="interactive-recent-item"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => go(item.kind === 'income' ? 'income' : 'expenses')}
-                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), go(item.kind === 'income' ? 'income' : 'expenses'))}
-                      >
-                        <span className="list-icon" aria-hidden="true">{item.kind === 'income' ? sourceIcon(item.source) : categoryIcon(item.category)}</span>
-                        <div className="list-item-info">
-                          <div className="list-item-title">{item.note || (item.kind === 'income' ? item.source : item.category)}</div>
-                          <div className="tiny-note">{formatShortDate(item.date)} · {item.kind === 'income' ? item.source : item.category}</div>
-                        </div>
-                        <span className={`amount-tag ${item.kind === 'income' ? 'income' : ''}`}>
-                          {item.kind === 'income' ? '+' : '−'}{formatCurrency(item.amount)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <EmptyState icon="📭" title="No activity yet" text="Start by logging money you received or spent." />
-                )}
-              </section>
-            </div>
-
-            <section className="panel savings-overview" aria-labelledby="savings-ov-title">
+            {/* Clean Recent Activity Section */}
+            <section className="panel clean-activity-panel" aria-labelledby="activity-title">
               <div className="panel-heading-row">
                 <div>
-                  <h2 className="panel-title" id="savings-ov-title">Savings goals</h2>
-                  <p className="tiny-note">How close you are to the things you’re saving for</p>
+                  <h2 className="panel-title" id="activity-title">Recent Transactions</h2>
+                  <p className="tiny-note">Tap any transaction to view, edit, or delete</p>
                 </div>
-                <button className="small-btn" type="button" onClick={() => go('goals')}>{goals.length ? 'Manage goals' : 'Add a goal'}</button>
+                <div className="activity-filter-pills" role="tablist">
+                  <button
+                    type="button"
+                    className={`small-btn ${activityFilter === 'all' ? 'primary-quick-btn' : ''}`}
+                    onClick={() => setActivityFilter('all')}
+                  >
+                    All ({recentActivity.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`small-btn ${activityFilter === 'expense' ? 'primary-quick-btn' : ''}`}
+                    onClick={() => setActivityFilter('expense')}
+                  >
+                    Expenses ({expenses.length})
+                  </button>
+                  <button
+                    type="button"
+                    className={`small-btn ${activityFilter === 'income' ? 'primary-quick-btn' : ''}`}
+                    onClick={() => setActivityFilter('income')}
+                  >
+                    Income ({incomes.length})
+                  </button>
+                </div>
               </div>
-              {goals.length ? (
-                <div className="savings-goal-grid">
-                  {goals.slice(0, 3).map((goal) => {
+
+              {filteredActivityList.length > 0 ? (
+                <ul className="recent-list">
+                  {filteredActivityList.map((item) => (
+                    <li
+                      key={`${item.kind}-${item.id}`}
+                      className="interactive-recent-item"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        if (item.kind === 'expense') {
+                          setEditExpense(item);
+                        } else {
+                          setDeleteConfirm({ type: 'income', item, amount: item.amount, label: item.source });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (item.kind === 'expense') setEditExpense(item);
+                          else setDeleteConfirm({ type: 'income', item, amount: item.amount, label: item.source });
+                        }
+                      }}
+                    >
+                      <span className="list-icon" aria-hidden="true">
+                        {item.kind === 'income' ? sourceIcon(item.source) : categoryIcon(item.category)}
+                      </span>
+                      <div className="list-item-info">
+                        <div className="list-item-title">
+                          {item.note || (item.kind === 'income' ? item.source : item.category)}
+                        </div>
+                        <div className="tiny-note">
+                          {formatShortDate(item.date)} · {item.kind === 'income' ? item.source : item.category}
+                        </div>
+                      </div>
+                      <span className={`amount-tag ${item.kind === 'income' ? 'income' : ''}`}>
+                        {item.kind === 'income' ? '+' : '−'}{formatCurrency(item.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState
+                  icon="📭"
+                  title="No transactions yet"
+                  text={
+                    activityFilter === 'income'
+                      ? 'No income logged yet. Click "+ Add Money" to add your allowance or earnings.'
+                      : activityFilter === 'expense'
+                      ? 'No expenses logged yet. Tap any 1-Tap shortcut above or click "− Log Expense".'
+                      : 'Start by recording your cash balance or logging your first transaction.'
+                  }
+                  action={
+                    <button type="button" className="primary-btn" onClick={() => setIsAddExpenseOpen(true)}>
+                      − Log First Expense
+                    </button>
+                  }
+                />
+              )}
+            </section>
+          </div>
+        )}
+
+        {/* ============================ BUDGET & GOALS ============================ */}
+        {view === 'goals' && (
+          <div className="goals-budget-view stack">
+            <PageIntro view="goals" />
+
+            {/* Monthly Budget Section */}
+            <section className="panel" aria-labelledby="budget-summary-title">
+              <div className="panel-heading-row">
+                <div>
+                  <h2 className="panel-title" id="budget-summary-title">Monthly Budget Limit</h2>
+                  <p className="tiny-note">Set a target limit so PESO can calculate your daily safe spend</p>
+                </div>
+              </div>
+
+              {hasBudget ? (
+                <div className="overall-budget" style={{ marginTop: '8px' }}>
+                  <div className="label-row">
+                    <span>
+                      Spent {formatCurrency(budget.spent)} of {formatCurrency(budget.totalLimit)} ({Math.min(100, Math.round((budget.spent / Math.max(1, budget.totalLimit)) * 100))}%)
+                    </span>
+                    <span className={budget.remaining < 0 ? 'text-danger' : 'text-success'}>
+                      {budget.remaining >= 0 ? `${formatCurrency(budget.remaining)} left` : `${formatCurrency(-budget.remaining)} over`}
+                    </span>
+                  </div>
+                  <ProgressBar value={budget.spent} max={budget.totalLimit} tone={budget.remaining < 0 ? 'over' : 'success'} label="Monthly budget usage" />
+                  {safeDailySpend > 0 && (
+                    <div className="field-hint" style={{ marginTop: '10px' }}>
+                      ✨ You can safely spend <strong>{formatCurrency(safeDailySpend)}/day</strong> for the remaining {daysLeft} days of this month.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="tiny-note">You haven’t set a budget yet. Enter your target monthly spending below to get daily limits.</p>
+              )}
+
+              <form className="stack" style={{ marginTop: '16px' }} onSubmit={handleBudgetSubmit}>
+                <Field label="Total Monthly Budget (₱)" hint="The maximum you plan to spend this month.">
+                  {(p) => (
+                    <AmountInput
+                      id={p.id}
+                      value={budgetForm.totalLimit}
+                      onChange={(v) => setBudgetForm((f) => ({ ...f, totalLimit: v }))}
+                      placeholder="e.g. 3000"
+                    />
+                  )}
+                </Field>
+                <button type="submit" className="primary-btn" disabled={busy === 'budget'}>
+                  {busy === 'budget' ? 'Saving…' : hasBudget ? 'Update Monthly Budget' : 'Set Monthly Budget'}
+                </button>
+              </form>
+            </section>
+
+            {/* Savings Goals Section */}
+            <section className="panel" aria-labelledby="savings-goals-title">
+              <div className="panel-heading-row">
+                <div>
+                  <h2 className="panel-title" id="savings-goals-title">Savings Goals</h2>
+                  <p className="tiny-note">Set money aside for things you want (laptop, emergency fund, tuition)</p>
+                </div>
+              </div>
+
+              {goals.length > 0 ? (
+                <div className="savings-goal-grid" style={{ marginTop: '12px' }}>
+                  {goals.map((goal) => {
                     const current = Number(goal.currentAmount || 0);
                     const target = Number(goal.targetAmount || 1);
                     const progress = Math.min((current / target) * 100, 100);
@@ -1419,546 +1422,142 @@ export default function App() {
                           <span>{formatCurrency(current)} saved</span>
                           <span>{formatCurrency(Math.max(target - current, 0))} to go</span>
                         </div>
-                        {!complete && (
+                        <div className="goal-card-actions" style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                           <button
                             type="button"
-                            className="home-goal-deposit-btn"
+                            className="small-btn primary-quick-btn"
                             onClick={() => {
                               setTransferModal({ goal, type: 'deposit' });
                               setTransferAmount('');
                               setTransferError('');
                             }}
                           >
-                            + Add money
+                            + Deposit
                           </button>
-                        )}
+                          {current > 0 && (
+                            <button
+                              type="button"
+                              className="small-btn"
+                              onClick={() => {
+                                setTransferModal({ goal, type: 'withdraw' });
+                                setTransferAmount('');
+                                setTransferError('');
+                              }}
+                            >
+                              Withdraw
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="link-btn small text-danger"
+                            onClick={() => setDeleteConfirm({ type: 'goal', goal, amount: current, label: goal.name })}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               ) : (
-                <EmptyState icon="🎯" title="No savings goals yet" text="Saving for a laptop, a trip or emergencies? Create a goal and track your progress." />
+                <EmptyState
+                  icon="🎯"
+                  title="No savings goals yet"
+                  text="Create a savings goal below to set aside money and track your progress."
+                />
               )}
-            </section>
 
-            <div className="trend-grid">
-              <WeeklySpendingReview expenses={expenses} />
-              <MonthlyTrendChart monthlyStats={reports?.monthlyStats} compact />
-            </div>
+              {/* Add New Goal Form */}
+              <div className="divider" style={{ margin: '20px 0' }}><span>Create a new savings goal</span></div>
+              <form className="stack" onSubmit={handleGoalSubmit}>
+                <Field label="What are you saving for?">
+                  {(p) => <input {...p} type="text" placeholder="e.g. Emergency fund, New laptop, School trip" value={goalForm.name} onChange={(e) => setGoalForm((f) => ({ ...f, name: e.target.value }))} required />}
+                </Field>
+                <Field label="Target amount (₱)">
+                  {(p) => <AmountInput id={p.id} value={goalForm.targetAmount} onChange={(v) => setGoalForm((f) => ({ ...f, targetAmount: v }))} />}
+                </Field>
+                <button type="submit" className="primary-btn" disabled={busy === 'goal'}>
+                  {busy === 'goal' ? 'Saving…' : 'Create Savings Goal'}
+                </button>
+              </form>
+            </section>
           </div>
         )}
 
-        {/* ============================ EXPENSES ============================ */}
-        {view === 'expenses' && (
-          <>
-            <PageIntro view="expenses" />
-            <div className="transaction-view">
-              <section className="panel" aria-labelledby="add-expense-title">
-                <div className="panel-heading-row add-panel-heading">
-                  <h2 className="panel-title" id="add-expense-title">Add an expense</h2>
-                  {expenses.length > 0 && (
-                    <a href="#expense-history-title" className="mobile-only-jump-btn" aria-label="Jump down to expense history">
-                      History ({expenses.length}) ↓
-                    </a>
-                  )}
-                </div>
-                <div className="quick-presets-wrap">
-                  <div className="quick-presets-header">
-                    <p className="tiny-note">1-Tap Quick Spend (saved for today — instant Undo):</p>
-                    <div className="quick-presets-actions">
-                      <button
-                        type="button"
-                        className={`small-btn ${isManagingQuick ? 'active-manage-btn' : ''}`}
-                        onClick={() => setIsManagingQuick((v) => !v)}
-                      >
-                        {isManagingQuick ? 'Done' : 'Manage'}
-                      </button>
-                      <button
-                        type="button"
-                        className="small-btn primary-quick-btn"
-                        onClick={() => setIsAddingQuick(true)}
-                      >
-                        + Add
-                      </button>
-                    </div>
-                  </div>
+        {/* ============================ INSIGHTS ============================ */}
+        {view === 'reports' && (
+          <div className="insights-view stack">
+            <PageIntro view="reports" />
 
-                  {/* Filter chips */}
-                  <div className="quick-category-tabs" role="tablist" aria-label="Classify quick spend">
-                    <button
-                      type="button"
-                      className={`quick-category-tab ${quickFilter === 'All' ? 'active' : ''}`}
-                      onClick={() => setQuickFilter('All')}
-                    >
-                      All ({quickPresets.length})
-                    </button>
-                    {QUICK_SPEND_CLASSIFICATIONS.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        className={`quick-category-tab ${quickFilter === c.id ? 'active' : ''}`}
-                        onClick={() => setQuickFilter(c.id)}
-                      >
-                        {c.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="preset-chips">
-                    {displayedQuickPresets.map((preset) => (
-                      <div key={preset.id || preset.label} className="quick-chip-container">
-                        <button
-                          type="button"
-                          className={`preset-chip ${isManagingQuick ? 'manage-mode' : ''}`}
-                          disabled={Boolean(busy) || isManagingQuick}
-                          onClick={() => handleQuickAdd(preset)}
-                        >
-                          {preset.label} · ₱{preset.amount}
-                        </button>
-                        {isManagingQuick && (
-                          <button
-                            type="button"
-                            className="quick-chip-delete"
-                            onClick={() => handleDeleteQuickPreset(preset)}
-                            aria-label={`Delete ${preset.label}`}
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {isManagingQuick && (
-                    <div className="quick-manage-footer">
-                      <button type="button" className="link-btn small" onClick={handleResetQuickPresets}>
-                        Reset to defaults
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="divider"><span>or enter the details</span></div>
-                <form className="stack" onSubmit={handleExpenseSubmit}>
-                  <Field label="How much did you spend?">
-                    {(p) => <AmountInput id={p.id} value={expenseForm.amount} onChange={(v) => setExpenseForm((f) => ({ ...f, amount: v }))} />}
-                  </Field>
-                  <ChoiceChips
-                    legend="What was it for?"
-                    name="expense-category"
-                    options={CATEGORIES}
-                    value={expenseForm.category}
-                    onChange={(v) => setExpenseForm((f) => ({ ...f, category: v }))}
-                    hint={categoryBudgetHint(expenseForm.category, expenseForm.amount)}
-                  />
-                  <Field label="Note" optional hint="A few words to help you remember, e.g. “Lunch with classmates”.">
-                    {(p) => <input {...p} type="text" maxLength={120} value={expenseForm.note} onChange={(e) => setExpenseForm((f) => ({ ...f, note: e.target.value }))} />}
-                  </Field>
-                  <Field label="When?">
-                    {(p) => (
-                      <div className="date-row">
-                        <input {...p} type="date" max={todayKey} value={expenseForm.date} onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))} required />
-                        {expenseForm.date !== todayKey && <button type="button" className="small-btn" onClick={() => setExpenseForm((f) => ({ ...f, date: todayKey }))}>Today</button>}
-                      </div>
-                    )}
-                  </Field>
-                  {Number(expenseForm.amount) > 0 && (
-                    <p className={`impact-note ${expenseAfter < 0 ? 'warn' : ''}`} aria-live="polite">
-                      Your balance will go from <strong>{formatCurrency(balance)}</strong> to <strong>{formatCurrency(expenseAfter)}</strong>.
-                      {expenseAfter < 0 && ' That’s below zero — did you forget to log some income?'}
-                    </p>
-                  )}
-                  <button type="submit" className="primary-btn" disabled={busy === 'expense'}>{busy === 'expense' ? 'Saving…' : 'Save expense'}</button>
-                </form>
-              </section>
-
-              <section className="panel" aria-labelledby="expense-history-title">
-                <div className="panel-heading-row expense-list-heading">
-                  <div className="expense-title-wrap">
-                    <div>
-                      <h2 className="panel-title" id="expense-history-title">Your expenses</h2>
-                      <p className="tiny-note">
-                        {filtersActive ? `Showing ${filteredExpenses.length} of ${expenses.length}` : `${expenses.length} total`} · {formatCurrency(filteredTotal)}
-                      </p>
-                    </div>
-                    <a href="#add-expense-title" className="mobile-only-jump-btn" aria-label="Jump up to add expense form">
-                      + Add expense ↑
-                    </a>
-                  </div>
-                  <div className="expense-tools">
-                    <button className="small-btn" type="button" onClick={() => exportExpenses(filteredExpenses)} disabled={!filteredExpenses.length}>⬇ Download CSV</button>
-                    <button className="small-btn danger" type="button" onClick={() => setIsResettingExpenses(true)} disabled={!expenses.length}>Delete all</button>
-                  </div>
-                </div>
-                <div className="expense-filters">
-                  <label className="visually-hidden" htmlFor="expense-search">Search expenses</label>
-                  <input id="expense-search" className="search-input" type="search" value={expenseSearch} onChange={(e) => setExpenseSearch(e.target.value)} placeholder="🔍 Search notes or categories…" />
-                  <div className="filter-row">
-                    <div className="category-chips" role="group" aria-label="Filter by category">
-                      {['All', ...CATEGORY_IDS].map((cat) => (
-                        <button key={cat} type="button" aria-pressed={selectedCategory === cat} className={`filter-chip ${selectedCategory === cat ? 'active' : ''}`} onClick={() => setSelectedCategory(cat)}>
-                          {cat === 'All' ? 'All' : <><span aria-hidden="true">{categoryIcon(cat)}</span> {cat}</>}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="select-row">
-                      <label className="visually-hidden" htmlFor="expense-period">Time period</label>
-                      <select id="expense-period" className="sort-select" value={expensePeriod} onChange={(e) => setExpensePeriod(e.target.value)}>
-                        <option value="all">All time</option>
-                        <option value="week">This week</option>
-                        <option value="month">This month</option>
-                        <option value="last-month">Last month</option>
-                      </select>
-                      <label className="visually-hidden" htmlFor="expense-sort">Sort by</label>
-                      <select id="expense-sort" className="sort-select" value={expenseSort} onChange={(e) => setExpenseSort(e.target.value)}>
-                        <option value="newest">Newest first</option>
-                        <option value="oldest">Oldest first</option>
-                        <option value="highest">Biggest first</option>
-                        <option value="lowest">Smallest first</option>
-                      </select>
-                    </div>
-                  </div>
-                  {filtersActive && (
-                    <button type="button" className="link-btn" onClick={() => { setExpensePeriod('all'); setSelectedCategory('All'); setExpenseSearch(''); }}>
-                      Clear filters
-                    </button>
-                  )}
-                </div>
-                <TransactionGroups
-                  items={filteredExpenses}
-                  kind="expense"
-                  onEdit={(e) => setEditExpense({ id: e.id, amount: String(e.amount), category: e.category, date: entryDateKey(e.date), note: e.note || '' })}
-                  onDelete={(e) => setDeleteConfirm({ type: 'expense', id: e.id, label: `${e.note || e.category} — ${formatCurrency(e.amount)}` })}
-                  emptyState={
-                    expenses.length
-                      ? <EmptyState icon="🔍" title="No expenses match your filters" text="Try a different category, period or search word." />
-                      : <EmptyState icon="🧾" title="No expenses yet" text="Add your first one using the form. Small things count too!" />
-                  }
-                />
-              </section>
+            {/* Month Summary Cards */}
+            <div className="grid-layout">
+              <StatCard
+                title="Total received this month"
+                value={<AnimatedCurrency value={monthIncome} />}
+                hint={monthIncome >= monthSpent ? `${formatCurrency(monthIncome - monthSpent)} net positive` : `${formatCurrency(monthSpent - monthIncome)} deficit`}
+                tone="green"
+              />
+              <StatCard
+                title="Total spent this month"
+                value={<AnimatedCurrency value={monthSpent} />}
+                hint={`${monthExpenses.length} expense${monthExpenses.length === 1 ? '' : 's'} recorded`}
+                tone="amber"
+              />
+              <StatCard
+                title="Saved in goals"
+                value={<AnimatedCurrency value={savingsTotal} />}
+                hint={`Across ${goals.length} active goal${goals.length === 1 ? '' : 's'}`}
+                tone="blue"
+              />
             </div>
-          </>
-        )}
 
-        {/* ============================ INCOME ============================ */}
-        {view === 'income' && (
-          <>
-            <PageIntro view="income" />
-            <div className="transaction-view">
-              <section className="panel" aria-labelledby="add-income-title">
-                <div className="panel-heading-row add-panel-heading">
-                  <h2 className="panel-title" id="add-income-title">Add money you received</h2>
-                  {incomes.length > 0 && (
-                    <a href="#income-history-title" className="mobile-only-jump-btn" aria-label="Jump down to money received history">
-                      History ({incomes.length}) ↓
-                    </a>
-                  )}
+            {/* Category Breakdown */}
+            <section className="panel" aria-labelledby="cat-breakdown-title">
+              <div className="panel-heading-row">
+                <div>
+                  <h2 className="panel-title" id="cat-breakdown-title">Where your money went this month</h2>
+                  <p className="tiny-note">Category spending breakdown and percentage share</p>
                 </div>
-                <form className="stack" onSubmit={handleIncomeSubmit}>
-                  <Field label="How much did you receive?">
-                    {(p) => <AmountInput id={p.id} value={incomeForm.amount} onChange={(v) => setIncomeForm((f) => ({ ...f, amount: v }))} />}
-                  </Field>
-                  <ChoiceChips legend="Where did it come from?" name="income-source" options={INCOME_SOURCES} value={incomeForm.source} onChange={(v) => setIncomeForm((f) => ({ ...f, source: v }))} />
-                  <Field label="Note" optional hint="e.g. “Weekly allowance from Mom”.">
-                    {(p) => <input {...p} type="text" maxLength={120} value={incomeForm.note} onChange={(e) => setIncomeForm((f) => ({ ...f, note: e.target.value }))} />}
-                  </Field>
-                  <Field label="When?">
-                    {(p) => <input {...p} type="date" max={todayKey} value={incomeForm.date} onChange={(e) => setIncomeForm((f) => ({ ...f, date: e.target.value }))} required />}
-                  </Field>
-                  {Number(incomeForm.amount) > 0 && (
-                    <p className="impact-note" aria-live="polite">
-                      Your balance will go from <strong>{formatCurrency(balance)}</strong> to <strong>{formatCurrency(incomeAfter)}</strong>.
-                    </p>
-                  )}
-                  <button type="submit" className="primary-btn" disabled={busy === 'income'}>{busy === 'income' ? 'Saving…' : 'Save income'}</button>
-                </form>
-              </section>
-
-              <section className="panel" aria-labelledby="income-history-title">
-                <div className="panel-heading-row income-list-heading">
-                  <div className="expense-title-wrap">
-                    <div>
-                      <h2 className="panel-title" id="income-history-title">Money you’ve received</h2>
-                      <p className="tiny-note">{incomes.length} entr{incomes.length === 1 ? 'y' : 'ies'} · {formatCurrency(incomes.reduce((s, i) => s + Number(i.amount), 0))} total</p>
-                    </div>
-                    <a href="#add-income-title" className="mobile-only-jump-btn" aria-label="Jump up to add money form">
-                      + Add money ↑
-                    </a>
-                  </div>
-                </div>
-                <TransactionGroups
-                  items={incomes}
-                  kind="income"
-                  onDelete={(i) => setDeleteConfirm({ type: 'income', id: i.id, label: `${i.note || i.source} — ${formatCurrency(i.amount)}` })}
-                  emptyState={<EmptyState icon="💰" title="No income logged yet" text="Add your allowance or pay so PESO knows how much you have to work with." />}
-                />
-              </section>
-            </div>
-          </>
-        )}
-
-        {/* ============================ BUDGET ============================ */}
-        {view === 'budgets' && (
-          <>
-            <PageIntro
-              view="budgets"
-              actions={<button type="button" className="secondary-btn" onClick={suggestBudget}>✨ Suggest from my spending</button>}
-            />
-            <form className="budget-layout" onSubmit={handleBudgetSubmit}>
-              <section className="panel" aria-labelledby="budget-total-title">
-                <h2 className="panel-title" id="budget-total-title">1. Your monthly limit</h2>
-                <p className="tiny-note">The most you want to spend in {formatMonthName(currentMonthKey())}.</p>
-                <div className="stack budget-total">
-                  <Field
-                    label="Monthly spending limit"
-                    hint={
-                      Number(budgetForm.totalLimit) > 0
-                        ? `That’s about ${formatCurrency(Number(budgetForm.totalLimit) / new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate())} per day.`
-                        : categorySum > 0
-                          ? `Leave blank to use the total of your category limits (${formatCurrency(categorySum)}).`
-                          : 'Tip: start with how much you usually receive in a month, minus what you want to save.'
-                    }
-                  >
-                    {(p) => <AmountInput id={p.id} describedBy={p['aria-describedby']} value={budgetForm.totalLimit} onChange={(v) => setBudgetForm((f) => ({ ...f, totalLimit: v }))} min="0" required={false} />}
-                  </Field>
-                  {Number(budgetForm.totalLimit) > 0 && categorySum > Number(budgetForm.totalLimit) && (
-                    <div className="impact-note warn">
-                      Your category limits add up to {formatCurrency(categorySum)}, which is more than your monthly limit.
-                      <button type="button" className="link-btn" onClick={() => setBudgetForm((f) => ({ ...f, totalLimit: String(categorySum) }))}>Use {formatCurrency(categorySum)} as the limit</button>
-                    </div>
-                  )}
-                  {hasBudget && (
-                    <div className="budget-now">
-                      <div className="label-row"><span>Spent so far this month</span><span>{formatCurrency(budget.spent)} / {formatCurrency(budget.totalLimit)}</span></div>
-                      <ProgressBar value={budget.spent} max={budget.totalLimit} tone={budget.remaining < 0 ? 'over' : ''} label="Monthly budget used" />
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section className="panel" aria-labelledby="budget-cat-title">
-                <h2 className="panel-title" id="budget-cat-title">2. Limits per category <span className="field-optional">(optional)</span></h2>
-                <p className="tiny-note">Get a warning when one type of spending gets too high. Leave blank for no limit.</p>
-                <ul className="budget-cat-list">
-                  {CATEGORIES.map((c) => {
-                    const limit = Number(budgetForm.categoryLimits[c.id] || 0);
-                    const spent = monthCategoryTotals[c.id] || 0;
-                    return (
-                      <li key={c.id} className="budget-cat-row">
-                        <label htmlFor={`limit-${c.id}`} className="budget-cat-name">
-                          <span aria-hidden="true">{c.icon}</span>
-                          <span>
-                            <strong>{c.id}</strong>
-                            <small>{c.hint}</small>
-                          </span>
-                        </label>
-                        <AmountInput
-                          id={`limit-${c.id}`}
-                          describedBy={`limit-${c.id}-status`}
-                          value={budgetForm.categoryLimits[c.id]}
-                          onChange={(v) => setBudgetForm((f) => ({ ...f, categoryLimits: { ...f.categoryLimits, [c.id]: v } }))}
-                          min="0"
-                          required={false}
-                          placeholder="No limit"
-                        />
-                        <div className="budget-cat-status" id={`limit-${c.id}-status`}>
-                          {limit > 0 ? (
-                            <>
-                              <ProgressBar value={spent} max={limit} tone={spent > limit ? 'over' : ''} label={`${c.id} limit used`} />
-                              <span className={spent > limit ? 'text-danger' : ''}>
-                                {formatCurrency(spent)} spent · {spent > limit ? `${formatCurrency(spent - limit)} over` : `${formatCurrency(limit - spent)} left`}
-                              </span>
-                            </>
-                          ) : (
-                            <span>{formatCurrency(spent)} spent this month</span>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="budget-footer">
-                  <span className="tiny-note">Categories total: <strong>{formatCurrency(categorySum)}</strong></span>
-                  <button type="submit" className="primary-btn" disabled={busy === 'budget'}>{busy === 'budget' ? 'Saving…' : 'Save budget'}</button>
-                </div>
-              </section>
-            </form>
-          </>
-        )}
-
-        {/* ============================ SAVINGS ============================ */}
-        {view === 'goals' && (
-          <>
-            <PageIntro view="goals" />
-            <div className="transaction-view">
-              <section className="panel" aria-labelledby="add-goal-title">
-                <h2 className="panel-title" id="add-goal-title">Start a new goal</h2>
-                <form className="stack" onSubmit={handleGoalSubmit}>
-                  <Field label="What are you saving for?" hint="e.g. New laptop, Emergency fund, Tuition">
-                    {(p) => <input {...p} type="text" maxLength={60} value={goalForm.name} onChange={(e) => setGoalForm((f) => ({ ...f, name: e.target.value }))} required />}
-                  </Field>
-                  <Field label="How much do you need?">
-                    {(p) => <AmountInput id={p.id} value={goalForm.targetAmount} onChange={(v) => setGoalForm((f) => ({ ...f, targetAmount: v }))} />}
-                  </Field>
-                  <Field label="Already saved" optional hint="Money you’ve already put aside somewhere else. This is NOT taken from your balance.">
-                    {(p) => <AmountInput id={p.id} describedBy={p['aria-describedby']} value={goalForm.currentAmount} onChange={(v) => setGoalForm((f) => ({ ...f, currentAmount: v }))} min="0" required={false} />}
-                  </Field>
-                  <Field label="Target date" optional hint="Add a date and PESO will tell you how much to save each week.">
-                    {(p) => <input {...p} type="date" min={todayKey} value={goalForm.targetDate} onChange={(e) => setGoalForm((f) => ({ ...f, targetDate: e.target.value }))} />}
-                  </Field>
-                  {Number(goalForm.targetAmount) > 0 && goalForm.targetDate && (
-                    <p className="impact-note">
-                      To reach it, save about <strong>{formatCurrency(Math.max(Number(goalForm.targetAmount) - Number(goalForm.currentAmount || 0), 0) / Math.max(1, Math.ceil((new Date(`${goalForm.targetDate}T00:00:00`) - new Date()) / 86400000)) * 7)}</strong> per week.
-                    </p>
-                  )}
-                  <button type="submit" className="primary-btn" disabled={busy === 'goal'}>{busy === 'goal' ? 'Saving…' : 'Create goal'}</button>
-                </form>
-              </section>
-
-              <section className="panel" aria-labelledby="goal-list-title">
-                <div className="panel-heading-row">
-                  <div>
-                    <h2 className="panel-title" id="goal-list-title">Your goals</h2>
-                    <p className="tiny-note">{formatCurrency(savingsTotal)} saved in total · {formatCurrency(balance)} available to add</p>
-                  </div>
-                </div>
-                {goals.length ? (
-                  <ul className="list-stack">
-                    {goals.map((goal) => {
-                      const current = Number(goal.currentAmount);
-                      const target = Number(goal.targetAmount || 1);
-                      const remaining = Math.max(target - current, 0);
-                      const complete = current >= target;
-                      const daysToGo = goal.targetDate ? Math.ceil((new Date(goal.targetDate) - new Date()) / 86400000) : null;
-                      let plan = 'No target date — save whenever you can.';
-                      if (complete) plan = '🎉 Goal reached! Great job.';
-                      else if (daysToGo !== null && daysToGo < 0) plan = `Target date passed (${formatShortDate(goal.targetDate)}).`;
-                      else if (daysToGo !== null) plan = `Save ${formatCurrency((remaining / Math.max(1, daysToGo)) * 7)}/week to finish by ${formatShortDate(goal.targetDate)} (${daysToGo} days).`;
+              </div>
+              {monthExpenses.length > 0 ? (
+                <ul className="bar-chart" style={{ marginTop: '12px' }}>
+                  {CATEGORIES.filter((c) => monthCategoryTotals[c.id])
+                    .sort((a, b) => (monthCategoryTotals[b.id] || 0) - (monthCategoryTotals[a.id] || 0))
+                    .map((c) => {
+                      const spent = monthCategoryTotals[c.id] || 0;
+                      const maxSpent = Math.max(...Object.values(monthCategoryTotals), 1);
+                      const sharePct = monthSpent > 0 ? Math.round((spent / monthSpent) * 100) : 0;
                       return (
-                        <li key={goal.id} className={`goal-card ${complete ? 'complete' : ''}`}>
-                          <div className="goal-card-header">
-                            <span className="list-item-title">🎯 {goal.name}</span>
-                            <span className="goal-pct">{Math.min((current / target) * 100, 100).toFixed(0)}%</span>
+                        <li key={c.id} className="chart-row">
+                          <div className="label-row">
+                            <span>
+                              <span aria-hidden="true">{c.icon}</span> {c.id}
+                              <small className="category-share-badge">{sharePct}%</small>
+                            </span>
+                            <strong>{formatCurrency(spent)}</strong>
                           </div>
-                          <div className="amount-row small-gap">
-                            <strong>{formatCurrency(current)}</strong>
-                            <span>of {formatCurrency(target)}{!complete && ` · ${formatCurrency(remaining)} to go`}</span>
-                          </div>
-                          <ProgressBar value={current} max={target} tone="success" label={`${goal.name} progress`} />
-                          <p className={`tiny-note goal-plan ${daysToGo !== null && daysToGo < 0 && !complete ? 'text-danger' : ''}`}>{plan}</p>
-                          <div className="goal-card-btns">
-                            {!complete && (
-                              <button type="button" className="small-btn deposit-btn" onClick={() => { setTransferModal({ goal, type: 'deposit' }); setTransferAmount(''); setTransferError(''); }}>
-                                + Add money<span className="visually-hidden"> to {goal.name}</span>
-                              </button>
-                            )}
-                            <button type="button" className="small-btn withdraw-btn" disabled={current <= 0} onClick={() => { setTransferModal({ goal, type: 'withdraw' }); setTransferAmount(''); setTransferError(''); }}>
-                              − Take out<span className="visually-hidden"> from {goal.name}</span>
-                            </button>
-                            <button type="button" className="small-btn danger" onClick={() => setDeleteConfirm({ type: 'goal', id: goal.id, label: goal.name, amount: current })}>
-                              Delete<span className="visually-hidden"> {goal.name}</span>
-                            </button>
+                          <div className="bar-track">
+                            <div className="bar-fill" style={{ width: `${(spent / maxSpent) * 100}%` }} />
                           </div>
                         </li>
                       );
                     })}
-                  </ul>
-                ) : (
-                  <EmptyState icon="🎯" title="No goals yet" text="Create your first goal with the form. Even ₱20 a day becomes ₱600 a month!" />
-                )}
-              </section>
+                </ul>
+              ) : (
+                <EmptyState
+                  icon="🧾"
+                  title="No spending recorded this month"
+                  text="When you log expenses, your category breakdown will automatically appear here."
+                />
+              )}
+            </section>
+
+            {/* Weekly & Monthly Charts */}
+            <div className="trend-grid">
+              <WeeklySpendingReview expenses={expenses} />
+              {reports?.monthlyStats && <MonthlyTrendChart monthlyStats={reports.monthlyStats} />}
             </div>
-          </>
-        )}
-
-        {/* ============================ REPORTS ============================ */}
-        {view === 'reports' && (
-          <>
-            <PageIntro
-              view="reports"
-              actions={
-                <div className="report-actions-row">
-                  <button type="button" className="secondary-btn" onClick={() => exportExpenses()} disabled={!expenses.length}>⬇ Download expenses (CSV)</button>
-                  <button type="button" className="secondary-btn" onClick={exportFullBackup}>💾 Backup all data (JSON)</button>
-                </div>
-              }
-            />
-            {!reports ? (
-              <section className="panel loading-panel" aria-busy="true"><div className="skeleton" /><p className="tiny-note">Loading reports…</p></section>
-            ) : (
-              <div className="reports-view">
-                <div className="grid-layout">
-                  <StatCard title="💰 Total received" value={formatCurrency(reports.totals?.totalIncome)} hint="All income you’ve logged" tone="green" />
-                  <StatCard title="💸 Total spent" value={formatCurrency(reports.totals?.totalExpenses)} hint="All expenses you’ve logged" tone="amber" />
-                  <StatCard
-                    title="⚖️ Difference"
-                    value={formatCurrency(reports.totals?.netCashflow)}
-                    hint={(reports.totals?.netCashflow || 0) >= 0 ? 'You received more than you spent' : 'You spent more than you received'}
-                    tone={(reports.totals?.netCashflow || 0) >= 0 ? 'blue' : 'danger'}
-                  />
-                  <StatCard title="🎯 Saved in goals" value={formatCurrency(reports.totals?.totalSaved)} hint="Set aside for later" tone="blue" />
-                </div>
-
-                <section className="panel" aria-labelledby="insights-title">
-                  <h2 className="panel-title" id="insights-title">What your numbers say</h2>
-                  <p className="tiny-note">Plain-language insights from everything you’ve logged.</p>
-                  <ul className="insight-list">
-                    {insights.map((insight) => (
-                      <li key={insight.text}><span aria-hidden="true">{insight.icon}</span><p>{insight.text}</p></li>
-                    ))}
-                  </ul>
-                </section>
-
-                <MonthlyTrendChart monthlyStats={reports.monthlyStats} />
-
-                <div className="content-grid">
-                  <section className="panel" aria-labelledby="month-table-title">
-                    <h2 className="panel-title" id="month-table-title">Month by month</h2>
-                    <div className="table-wrap">
-                      <table className="report-table">
-                        <caption className="visually-hidden">Money received and spent per month, last 6 months</caption>
-                        <thead>
-                          <tr><th scope="col">Month</th><th scope="col">Received</th><th scope="col">Spent</th><th scope="col">Difference</th></tr>
-                        </thead>
-                        <tbody>
-                          {[...(reports.monthlyStats || [])].reverse().map((m) => (
-                            <tr key={m.key}>
-                              <th scope="row">{formatMonthName(m.key)}</th>
-                              <td className="income">{formatCurrency(m.incomeTotal)}</td>
-                              <td>{formatCurrency(m.total)}</td>
-                              <td className={m.net < 0 ? 'text-danger' : 'income'}>{m.net >= 0 ? '+' : ''}{formatCurrency(m.net)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-
-                  <section className="panel" aria-labelledby="cat-report-title">
-                    <h2 className="panel-title" id="cat-report-title">Spending by category</h2>
-                    <p className="tiny-note">All time</p>
-                    {Object.keys(reports.categoryTotals || {}).length ? (
-                      <ul className="bar-chart">
-                        {Object.entries(reports.categoryTotals).sort((a, b) => b[1] - a[1]).map(([category, total]) => {
-                          const pct = reports.totals?.totalExpenses ? (total / reports.totals.totalExpenses) * 100 : 0;
-                          return (
-                            <li key={category} className="chart-row">
-                              <div className="label-row">
-                                <span><span aria-hidden="true">{categoryIcon(category)}</span> {category}</span>
-                                <span>{formatCurrency(total)} <span className="muted">({pct.toFixed(0)}%)</span></span>
-                              </div>
-                              <div className="bar-track"><div className="bar-fill" style={{ width: `${pct}%` }} /></div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    ) : (
-                      <EmptyState icon="📊" title="No spending yet" text="Your category breakdown will appear here." />
-                    )}
-                  </section>
-                </div>
-              </div>
-            )}
-          </>
+          </div>
         )}
       </main>
 

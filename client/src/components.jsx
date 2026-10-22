@@ -25,52 +25,34 @@ export const VIEWS = [
     id: 'dashboard',
     label: 'Home',
     icon: '🏠',
-    title: 'Home',
-    description: 'Your money at a glance.',
-  },
-  {
-    id: 'expenses',
-    label: 'Expenses',
-    icon: '💸',
-    title: 'Expenses',
-    description: 'Write down every peso you spend so you know exactly where your money goes.',
-    effect: 'Saving an expense subtracts it from your balance.',
-  },
-  {
-    id: 'income',
-    label: 'Income',
-    icon: '💰',
-    title: 'Income',
-    description: 'Record money you receive — allowance, salary, scholarship, gifts.',
-    effect: 'Saving income adds it to your balance.',
-  },
-  {
-    id: 'budgets',
-    label: 'Budget',
-    icon: '📊',
-    title: 'Monthly budget',
-    description: 'Decide the most you want to spend this month. PESO warns you before you go over.',
-    effect: 'A budget is only a limit — it does not move or lock any money.',
+    title: 'Daily Ledger',
+    description: 'Your balance, quick spending shortcuts, and recent transactions.',
   },
   {
     id: 'goals',
-    label: 'Savings',
+    label: 'Budget & Goals',
     icon: '🎯',
-    title: 'Savings goals',
-    description: 'Set money aside for things that matter — a laptop, tuition, an emergency fund.',
-    effect: 'Adding money to a goal moves it out of your balance. Taking it out moves it back.',
+    title: 'Budget & Savings',
+    description: 'Set your monthly budget limit and track your savings goals.',
   },
   {
     id: 'reports',
-    label: 'Reports',
-    icon: '📈',
-    title: 'Reports & insights',
-    description: 'See your spending patterns over time and what they mean.',
+    label: 'Insights',
+    icon: '📊',
+    title: 'Spending Insights',
+    description: 'See category breakdown, averages, and spending trends.',
   },
 ];
 
+const ALL_VIEW_METAS = [
+  ...VIEWS,
+  { id: 'expenses', label: 'Expenses', icon: '💸', title: 'Expenses', description: 'Log your expenses.' },
+  { id: 'income', label: 'Income', icon: '💰', title: 'Income', description: 'Log your income.' },
+  { id: 'budgets', label: 'Budget', icon: '📊', title: 'Monthly budget', description: 'Monthly budget limit.' },
+];
+
 export function PageIntro({ view, actions }) {
-  const meta = VIEWS.find((v) => v.id === view);
+  const meta = ALL_VIEW_METAS.find((v) => v.id === view);
   if (!meta) return null;
   return (
     <header className="page-intro">
