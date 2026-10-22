@@ -373,9 +373,13 @@ export function Modal({ open, onClose, labelledBy, className = '', children }) {
     if (!dialog) return;
     if (open && !dialog.open) {
       try {
-        dialog.showModal();
+        if (typeof dialog.showModal === 'function') {
+          dialog.showModal();
+        } else {
+          dialog.setAttribute('open', '');
+        }
       } catch {
-        // Fallback if already opened or unhandled
+        dialog.setAttribute('open', '');
       }
     }
   }, [open]);

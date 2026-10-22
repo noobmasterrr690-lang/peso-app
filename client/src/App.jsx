@@ -445,10 +445,12 @@ export default function App() {
 
   function go(nextView) {
     if (nextView === 'expenses') {
+      setExpenseForm((f) => ({ ...emptyExpense(), category: f.category || 'Food', date: todayKey }));
       setIsAddExpenseOpen(true);
       return;
     }
     if (nextView === 'income') {
+      setIncomeForm((f) => ({ ...emptyIncome(), date: todayKey }));
       setIsAddIncomeOpen(true);
       return;
     }
@@ -658,6 +660,7 @@ export default function App() {
       setIncomeForm(emptyIncome());
       await refresh();
       notify(`${formatCurrency(incomeForm.amount)} income saved. Balance is now ${formatCurrency(response.currentBalance)}.`);
+      setIsAddIncomeOpen(false);
     } catch (error) {
       fail(error);
     } finally {
@@ -1134,14 +1137,20 @@ export default function App() {
                 <button
                   type="button"
                   className="primary-btn hero-action-btn spend-btn"
-                  onClick={() => setIsAddExpenseOpen(true)}
+                  onClick={() => {
+                    setExpenseForm((f) => ({ ...emptyExpense(), category: f.category || 'Food', date: todayKey }));
+                    setIsAddExpenseOpen(true);
+                  }}
                 >
                   − Log Expense
                 </button>
                 <button
                   type="button"
                   className="primary-btn hero-action-btn income-btn"
-                  onClick={() => setIsAddIncomeOpen(true)}
+                  onClick={() => {
+                    setIncomeForm((f) => ({ ...emptyIncome(), date: todayKey }));
+                    setIsAddIncomeOpen(true);
+                  }}
                 >
                   + Add Money
                 </button>
@@ -1334,7 +1343,14 @@ export default function App() {
                       : 'Start by recording your cash balance or logging your first transaction.'
                   }
                   action={
-                    <button type="button" className="primary-btn" onClick={() => setIsAddExpenseOpen(true)}>
+                    <button
+                      type="button"
+                      className="primary-btn"
+                      onClick={() => {
+                        setExpenseForm((f) => ({ ...emptyExpense(), category: f.category || 'Food', date: todayKey }));
+                        setIsAddExpenseOpen(true);
+                      }}
+                    >
                       − Log First Expense
                     </button>
                   }
@@ -1563,6 +1579,154 @@ export default function App() {
       </main>
 
       {/* ============================ MODALS ============================ */}
+      {/* Log Expense Modal */}
+      <Modal open={isAddExpenseOpen} onClose={() => setIsAddExpenseOpen(false)} labelledBy="log-expense-title">
+        <h2 id="log-expense-title" className="modal-title">− Log an Expense</h2>
+        <p className="tiny-note">Deducts immediately from your available balance.</p>
+        <form className="stack" onSubmit={handleExpenseSubmit} style={{ marginTop: '14px' }}>
+          <Field label="How much did you spend? (₱)">
+            {(p) => (
+              <AmountInput
+                id={p.id}
+                value={expenseForm.amount}
+                onChange={(v) => setExpenseForm((f) => ({ ...f, amount: v }))}
+                autoFocus
+              />
+            )}
+          </Field>
+
+          {/* Quick Amount Suggestion Pills */}
+          <div className="quick-amount-pills" role="group" aria-label="Quick amount suggestions">
+            {[20, 50, 75, 100, 150, 200, 500].map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                className="small-btn"
+                onClick={() => setExpenseForm((f) => ({ ...f, amount: String(amt) }))}
+              >
+                ₱{amt}
+              </button>
+            ))}
+          </div>
+
+          <ChoiceChips
+            legend="What was it for?"
+            name="expense-category-modal"
+            options={CATEGORIES}
+            value={expenseForm.category}
+            onChange={(v) => setExpenseForm((f) => ({ ...f, category: v }))}
+          />
+
+          <Field label="Note / Description (Optional)" hint="e.g. Jeepney, Lunch at canteen, Yellow pad">
+            {(p) => (
+              <input
+                {...p}
+                type="text"
+                placeholder="e.g. Lunch at canteen"
+                maxLength={80}
+                value={expenseForm.note}
+                onChange={(e) => setExpenseForm((f) => ({ ...f, note: e.target.value }))}
+              />
+            )}
+          </Field>
+
+          <Field label="Date" optional>
+            {(p) => (
+              <input
+                {...p}
+                type="date"
+                value={expenseForm.date}
+                max={todayKey}
+                onChange={(e) => setExpenseForm((f) => ({ ...f, date: e.target.value }))}
+              />
+            )}
+          </Field>
+
+          <div className="modal-actions">
+            <button type="button" className="small-btn" onClick={() => setIsAddExpenseOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="primary-btn" disabled={busy === 'expense'}>
+              {busy === 'expense' ? 'Saving…' : 'Save Expense'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Add Income Modal */}
+      <Modal open={isAddIncomeOpen} onClose={() => setIsAddIncomeOpen(false)} labelledBy="add-income-title">
+        <h2 id="add-income-title" className="modal-title">+ Add Money / Income</h2>
+        <p className="tiny-note">Adds directly to your available balance.</p>
+        <form className="stack" onSubmit={handleIncomeSubmit} style={{ marginTop: '14px' }}>
+          <Field label="How much did you receive? (₱)">
+            {(p) => (
+              <AmountInput
+                id={p.id}
+                value={incomeForm.amount}
+                onChange={(v) => setIncomeForm((f) => ({ ...f, amount: v }))}
+                autoFocus
+              />
+            )}
+          </Field>
+
+          {/* Quick Amount Suggestion Pills */}
+          <div className="quick-amount-pills" role="group" aria-label="Quick amount suggestions">
+            {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                className="small-btn"
+                onClick={() => setIncomeForm((f) => ({ ...f, amount: String(amt) }))}
+              >
+                ₱{amt.toLocaleString()}
+              </button>
+            ))}
+          </div>
+
+          <ChoiceChips
+            legend="Where did it come from?"
+            name="income-source-modal"
+            options={INCOME_SOURCES}
+            value={incomeForm.source}
+            onChange={(v) => setIncomeForm((f) => ({ ...f, source: v }))}
+          />
+
+          <Field label="Note / Memo (Optional)" hint="e.g. Weekly allowance from parents, Tutoring fee">
+            {(p) => (
+              <input
+                {...p}
+                type="text"
+                placeholder="e.g. Weekly allowance"
+                maxLength={80}
+                value={incomeForm.note}
+                onChange={(e) => setIncomeForm((f) => ({ ...f, note: e.target.value }))}
+              />
+            )}
+          </Field>
+
+          <Field label="Date" optional>
+            {(p) => (
+              <input
+                {...p}
+                type="date"
+                value={incomeForm.date}
+                max={todayKey}
+                onChange={(e) => setIncomeForm((f) => ({ ...f, date: e.target.value }))}
+              />
+            )}
+          </Field>
+
+          <div className="modal-actions">
+            <button type="button" className="small-btn" onClick={() => setIsAddIncomeOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="primary-btn" disabled={busy === 'income'}>
+              {busy === 'income' ? 'Saving…' : 'Save Money'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Add 1-Tap Quick Spend Modal */}
       <Modal open={isAddingQuick} onClose={() => setIsAddingQuick(false)} labelledBy="add-quick-title">
         <h2 id="add-quick-title" className="modal-title">Add 1-Tap Quick Spend</h2>

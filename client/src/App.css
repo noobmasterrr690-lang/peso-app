@@ -5120,6 +5120,8 @@ dialog.modal .modal-body {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   margin-top: 4px;
+  position: relative;
+  z-index: 5;
 }
 
 .hero-action-btn {
@@ -5135,6 +5137,10 @@ dialog.modal .modal-body {
   transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
   border: none;
   text-decoration: none;
+  position: relative;
+  z-index: 5;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .hero-action-btn:active {
