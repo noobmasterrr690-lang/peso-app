@@ -24,6 +24,7 @@ import {
   daysLeftInMonth,
   entryDateKey,
   formatCurrency,
+  formatDayLabel,
   formatMonthName,
   formatShortDate,
   getGreeting,
