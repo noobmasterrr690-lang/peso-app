@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { prisma, isRealPostgres } from './lib/prisma.js';
+import ledger, { LedgerError } from './lib/ledger.js';
 import { ensureDemoUser } from './demo.js';
 
 dotenv.config();
@@ -33,30 +34,16 @@ function makeToken(user) {
   return jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: '30d' });
 }
 
-async function getUserBalance(userId) {
-  return prisma.balance.findFirst({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-  });
+function getUserBalance(userId) {
+  return ledger.getBalanceRow(userId);
 }
 
-async function adjustUserBalance(userId, delta, client = prisma) {
-  const latest = await client.balance.findFirst({
-    where: { userId },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  if (!latest) {
-    return client.balance.create({
-      data: { userId, currentAmount: Number(Number(delta).toFixed(2)) },
-    });
+function sendLedgerError(res, error, fallbackMessage) {
+  if (error instanceof LedgerError) {
+    return res.status(error.status).json({ message: error.message });
   }
-
-  const updatedAmount = Number((Number(latest.currentAmount) + Number(delta)).toFixed(2));
-  return client.balance.update({
-    where: { id: latest.id },
-    data: { currentAmount: updatedAmount },
-  });
+  console.error(fallbackMessage, error);
+  return res.status(500).json({ message: error.message || fallbackMessage });
 }
 
 async function getUserBudget(userId) {
@@ -405,37 +392,20 @@ app.get('/api/dashboard', authMiddleware, async (req, res) => {
 });
 
 app.get('/api/balance', authMiddleware, async (req, res) => {
-  const balance = await getUserBalance(req.user.id);
-  return res.json({ currentAmount: balance ? Number(balance.currentAmount) : 0 });
+  try {
+    const result = await ledger.getBalance(req.user.id);
+    return res.json(result);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to fetch balance.');
+  }
 });
 
 app.put('/api/balance', authMiddleware, async (req, res) => {
-  const { currentAmount } = req.body || {};
-  if (currentAmount === undefined || Number.isNaN(Number(currentAmount))) {
-    return res.status(400).json({ message: 'A valid balance amount is required.' });
-  }
-
-  const userId = req.user.id;
-
   try {
-    const latestBalance = await getUserBalance(userId);
-
-    if (!latestBalance) {
-      const balance = await prisma.balance.create({
-        data: { userId, currentAmount: Number(currentAmount) },
-      });
-      return res.json({ currentAmount: Number(balance.currentAmount) });
-    }
-
-    const balance = await prisma.balance.update({
-      where: { id: latestBalance.id },
-      data: { currentAmount: Number(currentAmount) },
-    });
-
-    return res.json({ currentAmount: Number(balance.currentAmount) });
+    const result = await ledger.setBalance(req.user.id, req.body?.currentAmount);
+    return res.json(result);
   } catch (error) {
-    console.error('Update balance error:', error);
-    return res.status(500).json({ message: error.message || 'Unable to update balance.' });
+    return sendLedgerError(res, error, 'Unable to update balance.');
   }
 });
 
@@ -464,121 +434,39 @@ app.get('/api/expenses', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/expenses', authMiddleware, async (req, res) => {
-  const { amount, category, date, note } = req.body || {};
-
-  if (!amount || !category || !date) {
-    return res.status(400).json({ message: 'Amount, category, and date are required.' });
-  }
-
-  const numAmount = Number(amount);
-  if (numAmount <= 0 || Number.isNaN(numAmount)) {
-    return res.status(400).json({ message: 'A valid positive expense amount is required.' });
-  }
-
   try {
-    const validDate = isNaN(new Date(date).getTime()) ? new Date() : new Date(date);
-
-    const result = await prisma.$transaction(async (tx) => {
-      const expense = await tx.expense.create({
-        data: {
-          userId: req.user.id,
-          amount: numAmount,
-          category: category.trim(),
-          date: validDate,
-          note: note?.trim() || '',
-        },
-      });
-
-      const updatedBalance = await adjustUserBalance(req.user.id, -numAmount, tx);
-      return {
-        expense,
-        currentBalance: Number(updatedBalance.currentAmount),
-      };
-    });
-
+    const result = await ledger.recordExpense(req.user.id, req.body);
     return res.status(201).json(result);
   } catch (error) {
-    console.error('Create expense error:', error);
-    return res.status(500).json({ message: error.message || 'Unable to save expense.' });
+    return sendLedgerError(res, error, 'Unable to save expense.');
   }
 });
 
 app.put('/api/expenses/:id', authMiddleware, async (req, res) => {
-  const { amount, category, date, note } = req.body || {};
-  const id = req.params.id;
-
-  const existingExpense = await prisma.expense.findFirst({ where: { id, userId: req.user.id } });
-  if (!existingExpense) {
-    return res.status(404).json({ message: 'Expense not found.' });
+  try {
+    const result = await ledger.reviseExpense(req.user.id, req.params.id, req.body);
+    return res.json(result);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to update expense.');
   }
-
-  const newAmount = amount !== undefined ? Number(amount) : existingExpense.amount;
-  const diff = Number((newAmount - existingExpense.amount).toFixed(2));
-
-  const result = await prisma.$transaction(async (tx) => {
-    const expense = await tx.expense.update({
-      where: { id },
-      data: {
-        amount: newAmount,
-        category: category === undefined ? existingExpense.category : category.trim(),
-        date: date === undefined ? existingExpense.date : new Date(date),
-        note: note === undefined ? existingExpense.note : note.trim(),
-      },
-    });
-
-    let currentBalance;
-    if (diff !== 0) {
-      const updatedBalance = await adjustUserBalance(req.user.id, -diff, tx);
-      currentBalance = Number(updatedBalance.currentAmount);
-    } else {
-      const balance = await getUserBalance(req.user.id);
-      currentBalance = balance ? Number(balance.currentAmount) : 0;
-    }
-
-    return { expense, currentBalance };
-  });
-
-  return res.json(result);
 });
 
 app.delete('/api/expenses/:id', authMiddleware, async (req, res) => {
-  const existingExpense = await prisma.expense.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!existingExpense) {
-    return res.status(404).json({ message: 'Expense not found.' });
+  try {
+    const result = await ledger.removeExpense(req.user.id, req.params.id);
+    return res.json({ message: 'Expense deleted and refunded to balance.', ...result });
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to delete expense.');
   }
-
-  const result = await prisma.$transaction(async (tx) => {
-    await tx.expense.delete({ where: { id: req.params.id } });
-    const updatedBalance = await adjustUserBalance(req.user.id, existingExpense.amount, tx);
-    return {
-      currentBalance: Number(updatedBalance.currentAmount),
-      refundedAmount: existingExpense.amount,
-    };
-  });
-
-  return res.json({ message: 'Expense deleted and refunded to balance.', ...result });
 });
 
 app.delete('/api/expenses', authMiddleware, async (req, res) => {
-  const expenses = await prisma.expense.findMany({ where: { userId: req.user.id } });
-  const totalRefund = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
-
-  const result = await prisma.$transaction(async (tx) => {
-    const delResult = await tx.expense.deleteMany({ where: { userId: req.user.id } });
-    let updatedBalance;
-    if (totalRefund > 0) {
-      updatedBalance = await adjustUserBalance(req.user.id, totalRefund, tx);
-    } else {
-      updatedBalance = await getUserBalance(req.user.id);
-    }
-    return {
-      deletedCount: delResult.count,
-      refundedAmount: totalRefund,
-      currentBalance: updatedBalance ? Number(updatedBalance.currentAmount) : 0,
-    };
-  });
-
-  return res.json(result);
+  try {
+    const result = await ledger.resetExpenses(req.user.id);
+    return res.json(result);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to reset expenses.');
+  }
 });
 
 app.get('/api/incomes', authMiddleware, async (req, res) => {
@@ -600,65 +488,20 @@ app.get('/api/incomes', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/incomes', authMiddleware, async (req, res) => {
-  const { amount, source, date, note } = req.body || {};
-
-  if (!amount || !source || !date) {
-    return res.status(400).json({ message: 'Amount, source, and date are required.' });
-  }
-
-  const numAmount = Number(amount);
-  if (numAmount <= 0 || Number.isNaN(numAmount)) {
-    return res.status(400).json({ message: 'A positive income amount is required.' });
-  }
-
   try {
-    const validDate = isNaN(new Date(date).getTime()) ? new Date() : new Date(date);
-
-    const result = await prisma.$transaction(async (tx) => {
-      const income = await tx.income.create({
-        data: {
-          userId: req.user.id,
-          amount: numAmount,
-          source: source.trim(),
-          date: validDate,
-          note: note?.trim() || '',
-        },
-      });
-
-      const updatedBalance = await adjustUserBalance(req.user.id, numAmount, tx);
-      return {
-        income,
-        currentBalance: Number(updatedBalance.currentAmount),
-      };
-    });
-
+    const result = await ledger.receiveIncome(req.user.id, req.body);
     return res.status(201).json(result);
   } catch (error) {
-    console.error('Create income error:', error);
-    return res.status(500).json({ message: error.message || 'Unable to save income.' });
+    return sendLedgerError(res, error, 'Unable to save income.');
   }
 });
 
 app.delete('/api/incomes/:id', authMiddleware, async (req, res) => {
-  const existingIncome = await prisma.income.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!existingIncome) {
-    return res.status(404).json({ message: 'Income entry not found.' });
-  }
-
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      await tx.income.delete({ where: { id: req.params.id } });
-      const updatedBalance = await adjustUserBalance(req.user.id, -existingIncome.amount, tx);
-      return {
-        currentBalance: Number(updatedBalance.currentAmount),
-        deductedAmount: existingIncome.amount,
-      };
-    });
-
+    const result = await ledger.removeIncome(req.user.id, req.params.id);
     return res.json({ message: 'Income entry removed and deducted from balance.', ...result });
   } catch (error) {
-    console.error('Delete income error:', error);
-    return res.status(500).json({ message: error.message || 'Unable to delete income.' });
+    return sendLedgerError(res, error, 'Unable to delete income.');
   }
 });
 
@@ -717,116 +560,48 @@ app.get('/api/savings-goals', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/savings-goals', authMiddleware, async (req, res) => {
-  const { name, targetAmount, currentAmount, targetDate } = req.body || {};
-  if (!name || targetAmount === undefined) {
-    return res.status(400).json({ message: 'Goal name and target amount are required.' });
+  try {
+    const goal = await ledger.createGoal(req.user.id, req.body);
+    return res.status(201).json(goal);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to create savings goal.');
   }
-
-  const goal = await prisma.savingsGoal.create({
-    data: {
-      userId: req.user.id,
-      name: name.trim(),
-      targetAmount: Number(targetAmount),
-      currentAmount: Number(currentAmount || 0),
-      targetDate: targetDate ? new Date(targetDate) : null,
-    },
-  });
-
-  return res.status(201).json(goal);
 });
 
 app.put('/api/savings-goals/:id', authMiddleware, async (req, res) => {
-  const { name, targetAmount, currentAmount, targetDate } = req.body || {};
-  const existing = await prisma.savingsGoal.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!existing) {
-    return res.status(404).json({ message: 'Savings goal not found.' });
+  try {
+    const goal = await ledger.updateGoal(req.user.id, req.params.id, req.body);
+    return res.json(goal);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to update savings goal.');
   }
-
-  const goal = await prisma.savingsGoal.update({
-    where: { id: existing.id },
-    data: {
-      name: name === undefined ? existing.name : name.trim(),
-      targetAmount: targetAmount === undefined ? existing.targetAmount : Number(targetAmount),
-      currentAmount: currentAmount === undefined ? existing.currentAmount : Number(currentAmount),
-      targetDate: targetDate === undefined ? existing.targetDate : targetDate ? new Date(targetDate) : null,
-    },
-  });
-
-  return res.json(goal);
 });
 
 app.delete('/api/savings-goals/:id', authMiddleware, async (req, res) => {
-  const existing = await prisma.savingsGoal.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!existing) {
-    return res.status(404).json({ message: 'Savings goal not found.' });
+  try {
+    const result = await ledger.closeGoal(req.user.id, req.params.id);
+    return res.json({ message: 'Savings goal deleted.', ...result });
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to delete savings goal.');
   }
-
-  await prisma.savingsGoal.delete({ where: { id: req.params.id } });
-  return res.status(204).send();
 });
 
 app.post('/api/savings-goals/:id/deposit', authMiddleware, async (req, res) => {
-  const { amount } = req.body || {};
-  const numAmount = Number(amount);
-
-  if (!numAmount || numAmount <= 0 || Number.isNaN(numAmount)) {
-    return res.status(400).json({ message: 'A valid positive deposit amount is required.' });
+  try {
+    const result = await ledger.depositToGoal(req.user.id, req.params.id, req.body?.amount);
+    return res.json(result);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to deposit to savings goal.');
   }
-
-  const goal = await prisma.savingsGoal.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!goal) {
-    return res.status(404).json({ message: 'Savings goal not found.' });
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const updatedGoal = await tx.savingsGoal.update({
-      where: { id: goal.id },
-      data: { currentAmount: Number((Number(goal.currentAmount) + numAmount).toFixed(2)) },
-    });
-
-    const updatedBalance = await adjustUserBalance(req.user.id, -numAmount, tx);
-    return {
-      goal: updatedGoal,
-      currentBalance: Number(updatedBalance.currentAmount),
-      depositedAmount: numAmount,
-    };
-  });
-
-  return res.json(result);
 });
 
 app.post('/api/savings-goals/:id/withdraw', authMiddleware, async (req, res) => {
-  const { amount } = req.body || {};
-  const numAmount = Number(amount);
-
-  if (!numAmount || numAmount <= 0 || Number.isNaN(numAmount)) {
-    return res.status(400).json({ message: 'A valid positive withdrawal amount is required.' });
+  try {
+    const result = await ledger.withdrawFromGoal(req.user.id, req.params.id, req.body?.amount);
+    return res.json(result);
+  } catch (error) {
+    return sendLedgerError(res, error, 'Unable to withdraw from savings goal.');
   }
-
-  const goal = await prisma.savingsGoal.findFirst({ where: { id: req.params.id, userId: req.user.id } });
-  if (!goal) {
-    return res.status(404).json({ message: 'Savings goal not found.' });
-  }
-
-  if (Number(goal.currentAmount) < numAmount) {
-    return res.status(400).json({ message: 'Withdrawal amount exceeds current goal savings.' });
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const updatedGoal = await tx.savingsGoal.update({
-      where: { id: goal.id },
-      data: { currentAmount: Number((Number(goal.currentAmount) - numAmount).toFixed(2)) },
-    });
-
-    const updatedBalance = await adjustUserBalance(req.user.id, numAmount, tx);
-    return {
-      goal: updatedGoal,
-      currentBalance: Number(updatedBalance.currentAmount),
-      withdrawnAmount: numAmount,
-    };
-  });
-
-  return res.json(result);
 });
 
 app.get('/api/reports', authMiddleware, async (req, res) => {

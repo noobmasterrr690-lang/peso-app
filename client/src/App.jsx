@@ -792,7 +792,8 @@ export default function App() {
   }
 
   async function handleConfirmDelete() {
-    const { type, id } = deleteConfirm;
+    const { type } = deleteConfirm;
+    const id = deleteConfirm.id || deleteConfirm.item?.id || deleteConfirm.goal?.id;
     const path = { expense: `/expenses/${id}`, income: `/incomes/${id}`, goal: `/savings-goals/${id}` }[type];
     setBusy('delete');
     try {
@@ -803,7 +804,7 @@ export default function App() {
         {
           expense: 'Expense deleted. The amount was added back to your balance.',
           income: 'Income deleted. The amount was removed from your balance.',
-          goal: 'Goal deleted.',
+          goal: deleteConfirm.amount > 0 ? 'Goal deleted and saved money returned to your balance.' : 'Goal deleted.',
         }[type],
       );
     } catch (error) {
@@ -1303,14 +1304,14 @@ export default function App() {
                         if (item.kind === 'expense') {
                           setEditExpense(item);
                         } else {
-                          setDeleteConfirm({ type: 'income', item, amount: item.amount, label: item.source });
+                          setDeleteConfirm({ type: 'income', id: item.id, item, amount: item.amount, label: item.source });
                         }
                       }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
                           if (item.kind === 'expense') setEditExpense(item);
-                          else setDeleteConfirm({ type: 'income', item, amount: item.amount, label: item.source });
+                          else setDeleteConfirm({ type: 'income', id: item.id, item, amount: item.amount, label: item.source });
                         }
                       }}
                     >
@@ -1467,7 +1468,7 @@ export default function App() {
                           <button
                             type="button"
                             className="link-btn small text-danger"
-                            onClick={() => setDeleteConfirm({ type: 'goal', goal, amount: current, label: goal.name })}
+                            onClick={() => setDeleteConfirm({ type: 'goal', id: goal.id, goal, amount: current, label: goal.name })}
                           >
                             Delete
                           </button>
@@ -1961,7 +1962,7 @@ export default function App() {
               {deleteConfirm.type === 'expense' && 'The amount will be added back to your balance.'}
               {deleteConfirm.type === 'income' && 'The amount will be removed from your balance.'}
               {deleteConfirm.type === 'goal' && (deleteConfirm.amount > 0
-                ? `⚠️ This goal has ${formatCurrency(deleteConfirm.amount)} saved. Deleting it will NOT return that money to your balance — use “Take out” first if you want it back.`
+                ? `This goal has ${formatCurrency(deleteConfirm.amount)} saved. Deleting it will return that money to your balance.`
                 : 'This goal will be removed permanently.')}
             </p>
             <div className="modal-actions">
